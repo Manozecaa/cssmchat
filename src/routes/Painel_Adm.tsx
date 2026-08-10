@@ -408,7 +408,9 @@ function UserForm({ editing, onDone }: { editing: AppUser | null; onDone: () => 
     setBusy(true);
     const res = editing
       ? await adminUpdateUser({
-          data: { userId: editing.id, username, fullName, password: password || undefined },
+          data: password
+            ? { userId: editing.id, username, fullName, password }
+            : { userId: editing.id, username, fullName },
         })
       : await adminCreateUser({ data: { username, password, fullName } });
     setBusy(false);
