@@ -160,7 +160,7 @@ function Dashboard({
   onLogout: () => void;
 }) {
   const [users, setUsers] = useState<AppUser[]>([]);
-  const [email, setEmail] = useState("");
+  const [newUsername, setNewUsername] = useState("");
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
   const [creating, setCreating] = useState(false);
