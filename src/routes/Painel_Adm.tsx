@@ -1,7 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, LogOut, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  Home,
+  Loader2,
+  LogOut,
+  Menu,
+  Search,
+  SquarePen,
+  UserCog,
+  Users,
+} from "lucide-react";
 import {
   adminMe,
   adminLogin,
@@ -9,13 +19,14 @@ import {
   adminUpdateCredentials,
   adminListUsers,
   adminCreateUser,
+  adminUpdateUser,
   adminDeleteUser,
 } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/Painel_Adm")({
   ssr: false,
@@ -25,7 +36,7 @@ export const Route = createFileRoute("/Painel_Adm")({
       {
         name: "description",
         content:
-          "Área restrita de administração do Nexo: criação de usuários corporativos e gestão das credenciais do painel.",
+          "Área restrita de administração do Nexo: cadastro de usuários corporativos e gestão das credenciais do painel.",
       },
       { property: "og:title", content: "Painel Administrativo — Nexo" },
       {
@@ -48,6 +59,8 @@ type AppUser = {
   created_at: string;
 };
 
+type View = "home" | "usuarios" | "cadastro" | "credenciais";
+
 function PainelAdm() {
   const [loading, setLoading] = useState(true);
   const [auth, setAuth] = useState(false);
@@ -59,6 +72,7 @@ function PainelAdm() {
         setAuth(r.authenticated);
         setAdminName(r.username);
       })
+      .catch(() => setAuth(false))
       .finally(() => setLoading(false));
   }, []);
 
@@ -82,7 +96,7 @@ function PainelAdm() {
   }
 
   return (
-    <Dashboard
+    <Shell
       adminName={adminName}
       onAdminName={setAdminName}
       onLogout={() => {
@@ -111,10 +125,10 @@ function LoginScreen({ onSuccess }: { onSuccess: (username: string) => void }) {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
+    <main className="flex min-h-screen items-center justify-center bg-admin-sidebar px-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-xl">Painel Administrativo</CardTitle>
+          <CardTitle className="text-xl">Painel administrativo</CardTitle>
           <p className="text-sm text-muted-foreground">Acesso restrito à administração.</p>
         </CardHeader>
         <CardContent>
@@ -150,7 +164,7 @@ function LoginScreen({ onSuccess }: { onSuccess: (username: string) => void }) {
   );
 }
 
-function Dashboard({
+function Shell({
   adminName,
   onAdminName,
   onLogout,
@@ -159,16 +173,10 @@ function Dashboard({
   onAdminName: (v: string) => void;
   onLogout: () => void;
 }) {
+  const [view, setView] = useState<View>("usuarios");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [users, setUsers] = useState<AppUser[]>([]);
-  const [newUsername, setNewUsername] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [password, setPassword] = useState("");
-  const [creating, setCreating] = useState(false);
-
-  const [credUser, setCredUser] = useState(adminName);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [savingCred, setSavingCred] = useState(false);
+  const [editing, setEditing] = useState<AppUser | null>(null);
 
   async function refresh() {
     try {
@@ -182,42 +190,436 @@ function Dashboard({
     void refresh();
   }, []);
 
-  async function createUser(e: React.FormEvent) {
-    e.preventDefault();
-    setCreating(true);
-    const res = await adminCreateUser({ data: { username: newUsername, password, fullName } });
-    setCreating(false);
-    if (!res.ok) {
-      toast.error(res.message);
-      return;
-    }
-    toast.success(res.message);
-    setNewUsername("");
+  const titles: Record<View, string> = {
+    home: "Home",
+    usuarios: "Usuários",
+    cadastro: editing ? "Editar usuário" : "Cadastro de usuários",
+    credenciais: "Credenciais do painel",
+  };
+
+  return (
+    <div className="flex min-h-screen bg-muted/40">
+      <aside
+        className={cn(
+          "hidden shrink-0 flex-col bg-admin-sidebar text-admin-sidebar-foreground md:flex",
+          sidebarOpen ? "w-60" : "w-0 overflow-hidden",
+        )}
+      >
+        <div className="px-5 py-4 text-lg font-medium">Painel administrativo</div>
+        <div className="px-5 pb-5 text-center">
+          <p className="text-xs text-admin-sidebar-muted">Bem-vindo</p>
+          <p className="text-sm font-semibold">{adminName}</p>
+        </div>
+        <p className="px-5 pb-2 text-[11px] font-semibold tracking-wider text-admin-sidebar-muted">
+          GENERAL
+        </p>
+        <nav className="flex flex-col text-sm">
+          <SideItem icon={Home} label="Home" active={view === "home"} onClick={() => setView("home")} />
+          <div className="flex items-center gap-3 px-5 py-3 text-admin-sidebar-foreground">
+            <SquarePen className="size-4" />
+            <span className="flex-1">Cadastros</span>
+            <ChevronDown className="size-4 text-admin-sidebar-muted" />
+          </div>
+          <SubItem
+            label="Usuários"
+            active={view === "usuarios"}
+            onClick={() => {
+              setEditing(null);
+              setView("usuarios");
+            }}
+          />
+          <SubItem
+            label="Novo usuário"
+            active={view === "cadastro"}
+            onClick={() => {
+              setEditing(null);
+              setView("cadastro");
+            }}
+          />
+          <SideItem
+            icon={UserCog}
+            label="Credenciais"
+            active={view === "credenciais"}
+            onClick={() => setView("credenciais")}
+          />
+        </nav>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex items-center justify-between border-b border-border bg-admin-topbar px-4 py-3">
+          <button
+            aria-label="Alternar menu"
+            onClick={() => setSidebarOpen((v) => !v)}
+            className="rounded p-1 text-admin-heading hover:bg-muted"
+          >
+            <Menu className="size-5" />
+          </button>
+          <button
+            onClick={async () => {
+              await adminLogout();
+              onLogout();
+            }}
+            className="flex items-center gap-2 text-sm text-admin-heading hover:underline"
+          >
+            {adminName} <LogOut className="size-4" />
+          </button>
+        </header>
+
+        <main className="flex-1 px-6 py-6">
+          <h1 className="mb-5 text-2xl font-light text-admin-heading">{titles[view]}</h1>
+
+          {view === "home" && <HomeCards count={users.length} onGo={() => setView("usuarios")} />}
+
+          {view === "cadastro" && (
+            <UserForm
+              key={editing?.id ?? "new"}
+              editing={editing}
+              onDone={() => {
+                setEditing(null);
+                setView("usuarios");
+                void refresh();
+              }}
+            />
+          )}
+
+          {view === "usuarios" && (
+            <UsersTable
+              users={users}
+              onNew={() => {
+                setEditing(null);
+                setView("cadastro");
+              }}
+              onEdit={(u) => {
+                setEditing(u);
+                setView("cadastro");
+              }}
+              onDelete={async (u) => {
+                const res = await adminDeleteUser({ data: { userId: u.id } });
+                if (!res.ok) return toast.error(res.message);
+                toast.success(res.message);
+                void refresh();
+              }}
+            />
+          )}
+
+          {view === "credenciais" && (
+            <CredentialsForm adminName={adminName} onAdminName={onAdminName} />
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function SideItem({
+  icon: Icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: typeof Home;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-admin-sidebar-active",
+        active && "border-l-4 border-admin-accent bg-admin-sidebar-active pl-4",
+      )}
+    >
+      <Icon className="size-4" />
+      {label}
+    </button>
+  );
+}
+
+function SubItem({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-2 py-2 pl-10 pr-5 text-left text-admin-sidebar-muted transition-colors hover:bg-admin-sidebar-active hover:text-admin-sidebar-foreground",
+        active && "bg-admin-sidebar-active text-admin-sidebar-foreground",
+      )}
+    >
+      <span className="size-1.5 rounded-full bg-current" />
+      {label}
+    </button>
+  );
+}
+
+function HomeCards({ count, onGo }: { count: number; onGo: () => void }) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-normal text-muted-foreground">
+            Usuários cadastrados
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-between">
+          <span className="text-3xl font-semibold">{count}</span>
+          <Users className="size-8 text-muted-foreground/40" />
+        </CardContent>
+      </Card>
+      <Card className="flex items-center justify-center p-6">
+        <Button onClick={onGo} variant="secondary">
+          Gerenciar usuários
+        </Button>
+      </Card>
+    </div>
+  );
+}
+
+function UserForm({ editing, onDone }: { editing: AppUser | null; onDone: () => void }) {
+  const [fullName, setFullName] = useState(editing?.full_name ?? "");
+  const [username, setUsername] = useState(editing?.username ?? "");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  function clear() {
     setFullName("");
+    setUsername("");
     setPassword("");
-    void refresh();
+    setConfirm("");
   }
 
-  async function removeUser(id: string) {
-    const res = await adminDeleteUser({ data: { userId: id } });
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (password !== confirm) {
+      toast.error("As senhas não conferem.");
+      return;
+    }
+    setBusy(true);
+    const res = editing
+      ? await adminUpdateUser({
+          data: { userId: editing.id, username, fullName, password: password || undefined },
+        })
+      : await adminCreateUser({ data: { username, password, fullName } });
+    setBusy(false);
     if (!res.ok) {
       toast.error(res.message);
       return;
     }
     toast.success(res.message);
-    void refresh();
+    clear();
+    onDone();
   }
 
-  async function saveCredentials(e: React.FormEvent) {
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <form onSubmit={submit} className="mx-auto max-w-3xl space-y-4">
+          <Field id="uf-name" label="Nome completo" required>
+            <Input
+              id="uf-name"
+              required
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+            />
+          </Field>
+          <Field id="uf-user" label="Nome de usuário (login)" required>
+            <Input
+              id="uf-user"
+              required
+              pattern="[A-Za-z0-9._-]{3,32}"
+              title="3 a 32 caracteres: letras, números, ponto, hífen ou underline"
+              autoComplete="off"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </Field>
+          <Field id="uf-pass" label={editing ? "Nova senha (opcional)" : "Senha"} required={!editing}>
+            <Input
+              id="uf-pass"
+              type="password"
+              required={!editing}
+              minLength={6}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </Field>
+          <Field id="uf-confirm" label="Confirmar senha" required={!editing}>
+            <Input
+              id="uf-confirm"
+              type="password"
+              required={!editing}
+              minLength={6}
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
+          </Field>
+
+          <div className="flex justify-center gap-3 border-t border-border pt-5">
+            <Button type="button" variant="outline" onClick={clear}>
+              Limpar
+            </Button>
+            <Button
+              type="submit"
+              disabled={busy}
+              className="bg-admin-success text-white hover:bg-admin-success/90"
+            >
+              {editing ? "Salvar" : "Enviar"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function Field({
+  id,
+  label,
+  required,
+  children,
+}: {
+  id: string;
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid items-center gap-2 sm:grid-cols-[220px_1fr] sm:gap-4">
+      <Label htmlFor={id} className="text-muted-foreground sm:justify-end">
+        {label} {required && <span className="text-admin-danger">*</span>}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
+function UsersTable({
+  users,
+  onNew,
+  onEdit,
+  onDelete,
+}: {
+  users: AppUser[];
+  onNew: () => void;
+  onEdit: (u: AppUser) => void;
+  onDelete: (u: AppUser) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter(
+      (u) => u.full_name.toLowerCase().includes(q) || u.username.toLowerCase().includes(q),
+    );
+  }, [users, query]);
+
+  return (
+    <>
+      <div className="mb-4 flex justify-end">
+        <div className="flex w-full max-w-xs items-center gap-0">
+          <Input
+            placeholder="Search for..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="rounded-r-none"
+          />
+          <Button variant="secondary" className="rounded-l-none" aria-label="Buscar">
+            <Search className="size-4" />
+          </Button>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between border-b border-border">
+          <CardTitle className="text-base font-normal text-admin-heading">
+            Usuários cadastrados
+          </CardTitle>
+          <Button size="sm" variant="secondary" onClick={onNew}>
+            Cadastrar novo usuário
+          </Button>
+        </CardHeader>
+        <CardContent className="overflow-x-auto pt-6">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left align-top font-semibold">
+                <th className="pb-3 pr-4">Nome</th>
+                <th className="pb-3 pr-4">Usuário</th>
+                <th className="pb-3 pr-4">Criado em</th>
+                <th className="pb-3">Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="py-6 text-muted-foreground">
+                    Nenhum usuário encontrado.
+                  </td>
+                </tr>
+              )}
+              {filtered.map((u) => (
+                <tr key={u.id} className="border-b border-border last:border-0">
+                  <td className="py-4 pr-4">{u.full_name}</td>
+                  <td className="py-4 pr-4 text-muted-foreground">@{u.username}</td>
+                  <td className="py-4 pr-4 text-muted-foreground">
+                    {new Date(u.created_at).toLocaleDateString("pt-BR")}
+                  </td>
+                  <td className="py-4">
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button
+                        size="sm"
+                        onClick={() => onEdit(u)}
+                        className="bg-admin-success text-white hover:bg-admin-success/90"
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => onDelete(u)}
+                        className="bg-admin-danger text-white hover:bg-admin-danger/90"
+                      >
+                        Excluir
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
+function CredentialsForm({
+  adminName,
+  onAdminName,
+}: {
+  adminName: string;
+  onAdminName: (v: string) => void;
+}) {
+  const [credUser, setCredUser] = useState(adminName);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function save(e: React.FormEvent) {
     e.preventDefault();
-    setSavingCred(true);
+    setBusy(true);
     const res = await adminUpdateCredentials({
       data: newPassword
         ? { currentPassword, username: credUser, newPassword }
         : { currentPassword, username: credUser },
     });
-
-    setSavingCred(false);
+    setBusy(false);
     if (!res.ok) {
       toast.error(res.message);
       return;
@@ -229,143 +631,45 @@ function Dashboard({
   }
 
   return (
-    <main className="min-h-screen bg-muted/30">
-      <header className="border-b border-border bg-background">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <div>
-            <h1 className="text-lg font-semibold tracking-tight">Painel Administrativo</h1>
-            <p className="text-xs text-muted-foreground">Conectado como {adminName}</p>
+    <Card>
+      <CardContent className="pt-6">
+        <form onSubmit={save} className="mx-auto max-w-3xl space-y-4">
+          <Field id="cred-user" label="Login" required>
+            <Input
+              id="cred-user"
+              required
+              value={credUser}
+              onChange={(e) => setCredUser(e.target.value)}
+            />
+          </Field>
+          <Field id="cred-current" label="Senha atual" required>
+            <Input
+              id="cred-current"
+              type="password"
+              required
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+            />
+          </Field>
+          <Field id="cred-new" label="Nova senha (opcional)">
+            <Input
+              id="cred-new"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+          </Field>
+          <div className="flex justify-center border-t border-border pt-5">
+            <Button
+              type="submit"
+              disabled={busy}
+              className="bg-admin-success text-white hover:bg-admin-success/90"
+            >
+              Salvar alterações
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              await adminLogout();
-              onLogout();
-            }}
-          >
-            <LogOut className="size-4" /> Sair
-          </Button>
-        </div>
-      </header>
-
-      <div className="mx-auto grid max-w-5xl gap-6 px-6 py-8 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Criar usuário</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={createUser} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="nu-name">Nome completo</Label>
-                <Input
-                  id="nu-name"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="nu-username">Nome de usuário (login)</Label>
-                <Input
-                  id="nu-username"
-                  required
-                  pattern="[A-Za-z0-9._-]{3,32}"
-                  title="3 a 32 caracteres: letras, números, ponto, hífen ou underline"
-                  autoComplete="off"
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="nu-pass">Senha inicial</Label>
-                <Input
-                  id="nu-pass"
-                  type="password"
-                  required
-                  minLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-              <Button type="submit" disabled={creating} className="w-full">
-                Criar usuário
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Credenciais do painel</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={saveCredentials} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="cred-user">Login</Label>
-                <Input
-                  id="cred-user"
-                  required
-                  value={credUser}
-                  onChange={(e) => setCredUser(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cred-current">Senha atual</Label>
-                <Input
-                  id="cred-current"
-                  type="password"
-                  required
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cred-new">Nova senha (opcional)</Label>
-                <Input
-                  id="cred-new"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                />
-              </div>
-              <Button type="submit" variant="secondary" disabled={savingCred} className="w-full">
-                Salvar alterações
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">Usuários ({users.length})</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {users.length === 0 && (
-              <p className="text-sm text-muted-foreground">Nenhum usuário cadastrado ainda.</p>
-            )}
-            {users.map((u, i) => (
-              <div key={u.id}>
-                {i > 0 && <Separator className="mb-3" />}
-                <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{u.full_name}</p>
-                    <p className="truncate text-xs text-muted-foreground">@{u.username}</p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeUser(u.id)}
-                    aria-label={`Remover ${u.full_name}`}
-                  >
-                    <Trash2 className="size-4 text-destructive" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-    </main>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
