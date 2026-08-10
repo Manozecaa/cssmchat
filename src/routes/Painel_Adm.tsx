@@ -206,8 +206,11 @@ function Dashboard({
     e.preventDefault();
     setSavingCred(true);
     const res = await adminUpdateCredentials({
-      data: { currentPassword, username: credUser, newPassword: newPassword || undefined },
+      data: newPassword
+        ? { currentPassword, username: credUser, newPassword }
+        : { currentPassword, username: credUser },
     });
+
     setSavingCred(false);
     if (!res.ok) {
       toast.error(res.message);
