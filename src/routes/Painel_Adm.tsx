@@ -185,14 +185,14 @@ function Dashboard({
   async function createUser(e: React.FormEvent) {
     e.preventDefault();
     setCreating(true);
-    const res = await adminCreateUser({ data: { email, password, fullName } });
+    const res = await adminCreateUser({ data: { username: newUsername, password, fullName } });
     setCreating(false);
     if (!res.ok) {
       toast.error(res.message);
       return;
     }
     toast.success(res.message);
-    setEmail("");
+    setNewUsername("");
     setFullName("");
     setPassword("");
     void refresh();
