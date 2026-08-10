@@ -40,7 +40,13 @@ export const Route = createFileRoute("/Painel_Adm")({
   component: PainelAdm,
 });
 
-type AppUser = { id: string; email: string | null; full_name: string; created_at: string };
+type AppUser = {
+  id: string;
+  email: string | null;
+  username: string;
+  full_name: string;
+  created_at: string;
+};
 
 function PainelAdm() {
   const [loading, setLoading] = useState(true);
