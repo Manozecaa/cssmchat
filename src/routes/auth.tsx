@@ -101,56 +101,13 @@ function AuthPage() {
                   Entrar
                 </Button>
               </form>
-            </TabsContent>
-
-            <TabsContent value="criar">
-              <form onSubmit={signUp} className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nome completo</Label>
-                  <Input
-                    id="name"
-                    required
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email2">E-mail</Label>
-                  <Input
-                    id="email2"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password2">Senha</Label>
-                  <Input
-                    id="password2"
-                    type="password"
-                    required
-                    minLength={6}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={busy}>
-                  Criar conta
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-
-          <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="h-px flex-1 bg-border" />
-            ou
-            <span className="h-px flex-1 bg-border" />
+            </div>
           </div>
 
-          <Button variant="outline" className="w-full" onClick={google}>
-            Continuar com Google
-          </Button>
+          <p className="mt-6 text-xs text-muted-foreground">
+            Contas são criadas exclusivamente pela administração no painel interno.
+          </p>
+
         </div>
       </section>
     </main>
