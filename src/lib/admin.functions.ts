@@ -141,6 +141,50 @@ export const adminCreateUser = createServerFn({ method: "POST" })
     return { ok: true as const, message: "Usuário criado." };
   });
 
+export const adminUpdateUser = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: { userId: string; username: string; fullName: string; password?: string }) => data,
+  )
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const username = data.username.trim().toLowerCase();
+    if (!/^[a-z0-9._-]{3,32}$/.test(username)) {
+      return { ok: false as const, message: "Usuário inválido: use 3 a 32 caracteres." };
+    }
+    if (data.password && data.password.length < 6) {
+      return { ok: false as const, message: "Senha deve ter ao menos 6 caracteres." };
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: existing } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("username", username)
+      .maybeSingle();
+    if (existing && existing.id !== data.userId) {
+      return { ok: false as const, message: "Este nome de usuário já existe." };
+    }
+
+    const fullName = data.fullName.trim() || username;
+    const payload: Record<string, unknown> = {
+      email: `${username}@nexo.local`,
+      user_metadata: { username, full_name: fullName },
+    };
+    if (data.password) payload["password"] = data.password;
+
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, payload);
+    if (error) return { ok: false as const, message: error.message };
+
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .update({ username, full_name: fullName, email: `${username}@nexo.local` })
+      .eq("id", data.userId);
+    if (profileError) return { ok: false as const, message: profileError.message };
+
+    return { ok: true as const, message: "Usuário atualizado." };
+  });
+
 export const adminDeleteUser = createServerFn({ method: "POST" })
   .inputValidator((data: { userId: string }) => data)
   .handler(async ({ data }) => {
@@ -150,3 +194,4 @@ export const adminDeleteUser = createServerFn({ method: "POST" })
     if (error) return { ok: false as const, message: error.message };
     return { ok: true as const, message: "Usuário removido." };
   });
+
