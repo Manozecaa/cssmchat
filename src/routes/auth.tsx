@@ -2,11 +2,9 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -33,7 +31,6 @@ function AuthPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -51,41 +48,6 @@ function AuthPage() {
       toast.error(error.message);
       return;
     }
-    navigate({ to: "/conversas", replace: true });
-  }
-
-  async function signUp(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: window.location.origin,
-        data: { full_name: fullName },
-      },
-    });
-    setBusy(false);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    if (!data.session) {
-      toast.success("Conta criada. Confirme seu e-mail para entrar.");
-      return;
-    }
-    navigate({ to: "/conversas", replace: true });
-  }
-
-  async function google() {
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) {
-      toast.error("Não foi possível entrar com Google.");
-      return;
-    }
-    if (result.redirected) return;
     navigate({ to: "/conversas", replace: true });
   }
 
@@ -108,17 +70,13 @@ function AuthPage() {
         <div className="w-full max-w-sm">
           <h2 className="text-2xl font-semibold tracking-tight">Acessar o Nexo</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Entre com sua conta corporativa.
+            Use as credenciais fornecidas pela administração da sua empresa.
           </p>
 
-          <Tabs defaultValue="entrar" className="mt-6">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="entrar">Entrar</TabsTrigger>
-              <TabsTrigger value="criar">Criar conta</TabsTrigger>
-            </TabsList>
+          <div>
+            <div>
+              <form onSubmit={signIn} className="space-y-4 pt-6">
 
-            <TabsContent value="entrar">
-              <form onSubmit={signIn} className="space-y-4 pt-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">E-mail</Label>
                   <Input
@@ -143,56 +101,13 @@ function AuthPage() {
                   Entrar
                 </Button>
               </form>
-            </TabsContent>
-
-            <TabsContent value="criar">
-              <form onSubmit={signUp} className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nome completo</Label>
-                  <Input
-                    id="name"
-                    required
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email2">E-mail</Label>
-                  <Input
-                    id="email2"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password2">Senha</Label>
-                  <Input
-                    id="password2"
-                    type="password"
-                    required
-                    minLength={6}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={busy}>
-                  Criar conta
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-
-          <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="h-px flex-1 bg-border" />
-            ou
-            <span className="h-px flex-1 bg-border" />
+            </div>
           </div>
 
-          <Button variant="outline" className="w-full" onClick={google}>
-            Continuar com Google
-          </Button>
+          <p className="mt-6 text-xs text-muted-foreground">
+            Contas são criadas exclusivamente pela administração no painel interno.
+          </p>
+
         </div>
       </section>
     </main>
