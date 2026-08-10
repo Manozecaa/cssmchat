@@ -266,13 +266,15 @@ function Dashboard({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="nu-email">E-mail corporativo</Label>
+                <Label htmlFor="nu-username">Nome de usuário (login)</Label>
                 <Input
-                  id="nu-email"
-                  type="email"
+                  id="nu-username"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  pattern="[A-Za-z0-9._-]{3,32}"
+                  title="3 a 32 caracteres: letras, números, ponto, hífen ou underline"
+                  autoComplete="off"
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
