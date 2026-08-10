@@ -29,7 +29,7 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -42,10 +42,14 @@ function AuthPage() {
   async function signIn(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const normalized = username.trim().toLowerCase();
+    const { error } = await supabase.auth.signInWithPassword({
+      email: `${normalized}@nexo.local`,
+      password,
+    });
     setBusy(false);
     if (error) {
-      toast.error(error.message);
+      toast.error("Usuário ou senha inválidos.");
       return;
     }
     navigate({ to: "/conversas", replace: true });
@@ -78,13 +82,13 @@ function AuthPage() {
               <form onSubmit={signIn} className="space-y-4 pt-6">
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">E-mail</Label>
+                  <Label htmlFor="username">Nome de usuário</Label>
                   <Input
-                    id="email"
-                    type="email"
+                    id="username"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">

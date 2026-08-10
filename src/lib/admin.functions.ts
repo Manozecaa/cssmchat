@@ -101,30 +101,41 @@ export const adminListUsers = createServerFn({ method: "GET" }).handler(async ()
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin
     .from("profiles")
-    .select("id, email, full_name, created_at")
+    .select("id, email, username, full_name, created_at")
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return data ?? [];
 });
 
 export const adminCreateUser = createServerFn({ method: "POST" })
-  .inputValidator((data: { email: string; password: string; fullName: string }) => data)
+  .inputValidator((data: { username: string; password: string; fullName: string }) => data)
   .handler(async ({ data }) => {
     await requireAdmin();
-    const email = data.email.trim().toLowerCase();
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-      return { ok: false as const, message: "E-mail inválido." };
+    const username = data.username.trim().toLowerCase();
+    if (!/^[a-z0-9._-]{3,32}$/.test(username)) {
+      return {
+        ok: false as const,
+        message: "Usuário inválido: use 3 a 32 caracteres (letras, números, . _ -).",
+      };
     }
     if (data.password.length < 6) {
       return { ok: false as const, message: "Senha deve ter ao menos 6 caracteres." };
     }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: existing } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("username", username)
+      .maybeSingle();
+    if (existing) return { ok: false as const, message: "Este nome de usuário já existe." };
+
     const { error } = await supabaseAdmin.auth.admin.createUser({
-      email,
+      email: `${username}@nexo.local`,
       password: data.password,
       email_confirm: true,
-      user_metadata: { full_name: data.fullName.trim() || email.split("@")[0] },
+      user_metadata: { username, full_name: data.fullName.trim() || username },
     });
     if (error) return { ok: false as const, message: error.message };
     return { ok: true as const, message: "Usuário criado." };

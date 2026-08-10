@@ -40,7 +40,13 @@ export const Route = createFileRoute("/Painel_Adm")({
   component: PainelAdm,
 });
 
-type AppUser = { id: string; email: string | null; full_name: string; created_at: string };
+type AppUser = {
+  id: string;
+  email: string | null;
+  username: string;
+  full_name: string;
+  created_at: string;
+};
 
 function PainelAdm() {
   const [loading, setLoading] = useState(true);
@@ -154,7 +160,7 @@ function Dashboard({
   onLogout: () => void;
 }) {
   const [users, setUsers] = useState<AppUser[]>([]);
-  const [email, setEmail] = useState("");
+  const [newUsername, setNewUsername] = useState("");
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
   const [creating, setCreating] = useState(false);
@@ -179,14 +185,14 @@ function Dashboard({
   async function createUser(e: React.FormEvent) {
     e.preventDefault();
     setCreating(true);
-    const res = await adminCreateUser({ data: { email, password, fullName } });
+    const res = await adminCreateUser({ data: { username: newUsername, password, fullName } });
     setCreating(false);
     if (!res.ok) {
       toast.error(res.message);
       return;
     }
     toast.success(res.message);
-    setEmail("");
+    setNewUsername("");
     setFullName("");
     setPassword("");
     void refresh();
@@ -260,13 +266,15 @@ function Dashboard({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="nu-email">E-mail corporativo</Label>
+                <Label htmlFor="nu-username">Nome de usuário (login)</Label>
                 <Input
-                  id="nu-email"
-                  type="email"
+                  id="nu-username"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  pattern="[A-Za-z0-9._-]{3,32}"
+                  title="3 a 32 caracteres: letras, números, ponto, hífen ou underline"
+                  autoComplete="off"
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -342,7 +350,7 @@ function Dashboard({
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{u.full_name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{u.email}</p>
+                    <p className="truncate text-xs text-muted-foreground">@{u.username}</p>
                   </div>
                   <Button
                     variant="ghost"
