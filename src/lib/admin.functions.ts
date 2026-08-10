@@ -82,8 +82,9 @@ export const adminUpdateCredentials = createServerFn({ method: "POST" })
       return { ok: false as const, message: "Nova senha muito curta." };
     }
 
-    const patch: Record<string, string> = { username };
-    if (data.newPassword) patch["password_hash"] = hash(row.password_salt, data.newPassword);
+    const patch: { username: string; password_hash?: string } = { username };
+    if (data.newPassword) patch.password_hash = hash(row.password_salt, data.newPassword);
+
 
     const { error } = await supabaseAdmin
       .from("admin_credentials")
