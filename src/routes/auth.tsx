@@ -70,17 +70,13 @@ function AuthPage() {
         <div className="w-full max-w-sm">
           <h2 className="text-2xl font-semibold tracking-tight">Acessar o Nexo</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Entre com sua conta corporativa.
+            Use as credenciais fornecidas pela administração da sua empresa.
           </p>
 
-          <Tabs defaultValue="entrar" className="mt-6">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="entrar">Entrar</TabsTrigger>
-              <TabsTrigger value="criar">Criar conta</TabsTrigger>
-            </TabsList>
+          <div>
+            <div>
+              <form onSubmit={signIn} className="space-y-4 pt-6">
 
-            <TabsContent value="entrar">
-              <form onSubmit={signIn} className="space-y-4 pt-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">E-mail</Label>
                   <Input
