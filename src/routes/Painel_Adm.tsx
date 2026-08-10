@@ -295,7 +295,10 @@ function Shell({
               }}
               onDelete={async (u) => {
                 const res = await adminDeleteUser({ data: { userId: u.id } });
-                if (!res.ok) return toast.error(res.message);
+                if (!res.ok) {
+                  toast.error(res.message);
+                  return;
+                }
                 toast.success(res.message);
                 void refresh();
               }}
