@@ -106,7 +106,18 @@
   --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
   --sidebar-border: oklch(0.929 0.013 255.508);
   --sidebar-ring: oklch(0.704 0.04 256.788);
+  --admin-sidebar: oklch(0.31 0.045 253);
+  --admin-sidebar-foreground: oklch(0.95 0.005 250);
+  --admin-sidebar-muted: oklch(0.72 0.025 250);
+  --admin-sidebar-active: oklch(0.26 0.04 253);
+  --admin-accent: oklch(0.72 0.13 176);
+  --admin-topbar: oklch(0.97 0 0);
+  --admin-heading: oklch(0.55 0.03 250);
+  --admin-success: oklch(0.68 0.14 163);
+  --admin-danger: oklch(0.61 0.2 25);
+  --admin-info: oklch(0.6 0.18 255);
 }
+
 
 .dark {
   --background: oklch(0.129 0.042 264.695);
