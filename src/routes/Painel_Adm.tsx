@@ -350,7 +350,7 @@ function Dashboard({
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{u.full_name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{u.email}</p>
+                    <p className="truncate text-xs text-muted-foreground">@{u.username}</p>
                   </div>
                   <Button
                     variant="ghost"
