@@ -807,3 +807,328 @@ function CredentialsForm({
     </Card>
   );
 }
+
+/* --------------------------- Administradores ----------------------------- */
+
+function AdminsPanel() {
+  const [admins, setAdmins] = useState<AdminAccount[]>([]);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function refresh() {
+    try {
+      setAdmins((await adminListAdmins()) as AdminAccount[]);
+    } catch {
+      toast.error("Acesso restrito ao administrador principal.");
+    }
+  }
+
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    const res = await adminCreateAdmin({ data: { username, password } });
+    setBusy(false);
+    if (!res.ok) {
+      toast.error(res.message);
+      return;
+    }
+    toast.success(res.message);
+    setUsername("");
+    setPassword("");
+    void refresh();
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader className="border-b border-border">
+          <CardTitle className="text-base font-normal text-admin-heading">
+            Novo administrador secundário
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <p className="mx-auto mb-4 max-w-3xl text-sm text-muted-foreground">
+            Administradores secundários podem gerenciar usuários e exportar conversas (com a senha
+            do administrador principal), mas não podem criar ou alterar administradores.
+          </p>
+          <form onSubmit={create} className="mx-auto max-w-3xl space-y-4">
+            <Field id="ad-user" label="Login" required>
+              <Input
+                id="ad-user"
+                required
+                minLength={3}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+            </Field>
+            <Field id="ad-pass" label="Senha" required>
+              <Input
+                id="ad-pass"
+                type="password"
+                required
+                minLength={6}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </Field>
+            <div className="flex justify-center border-t border-border pt-5">
+              <Button
+                type="submit"
+                disabled={busy}
+                className="bg-admin-success text-white hover:bg-admin-success/90"
+              >
+                Criar administrador
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="border-b border-border">
+          <CardTitle className="text-base font-normal text-admin-heading">
+            Contas administrativas
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto pt-6">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left font-semibold">
+                <th className="pb-3 pr-4">Login</th>
+                <th className="pb-3 pr-4">Nível</th>
+                <th className="pb-3 pr-4">Status</th>
+                <th className="pb-3">Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {admins.map((a) => (
+                <tr key={a.id} className="border-b border-border last:border-0">
+                  <td className="py-4 pr-4">{a.username}</td>
+                  <td className="py-4 pr-4 text-muted-foreground">
+                    {a.role === "primary" ? "Principal" : "Secundário"}
+                  </td>
+                  <td className="py-4 pr-4 text-muted-foreground">
+                    {a.is_active ? "Ativo" : "Inativo"}
+                  </td>
+                  <td className="py-4">
+                    {a.role === "primary" ? (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    ) : (
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={async () => {
+                            const res = await adminUpdateAdmin({
+                              data: { adminId: a.id, isActive: !a.is_active },
+                            });
+                            if (!res.ok) return toast.error(res.message);
+                            toast.success(res.message);
+                            void refresh();
+                          }}
+                        >
+                          {a.is_active ? "Desativar" : "Ativar"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={async () => {
+                            const pass = window.prompt("Nova senha para " + a.username);
+                            if (!pass) return;
+                            const res = await adminUpdateAdmin({
+                              data: { adminId: a.id, password: pass },
+                            });
+                            if (!res.ok) return toast.error(res.message);
+                            toast.success(res.message);
+                          }}
+                        >
+                          Redefinir senha
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="bg-admin-danger text-white hover:bg-admin-danger/90"
+                          onClick={async () => {
+                            if (!window.confirm(`Remover o administrador ${a.username}?`)) return;
+                            const res = await adminDeleteAdmin({ data: { adminId: a.id } });
+                            if (!res.ok) return toast.error(res.message);
+                            toast.success(res.message);
+                            void refresh();
+                          }}
+                        >
+                          Excluir
+                        </Button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/* ------------------------- Download de conversas -------------------------- */
+
+function ConversationsPanel() {
+  const [convs, setConvs] = useState<AdminConversation[]>([]);
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<AdminConversation | null>(null);
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    adminListConversations()
+      .then((r) => setConvs(r as AdminConversation[]))
+      .catch(() => toast.error("Não foi possível carregar as conversas."));
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return convs;
+    return convs.filter(
+      (c) =>
+        (c.title ?? "").toLowerCase().includes(q) ||
+        c.participants.some((p) => p.toLowerCase().includes(q)),
+    );
+  }, [convs, query]);
+
+  async function download(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selected) return;
+    setBusy(true);
+    const res = await adminExportConversation({
+      data: { conversationId: selected.id, primaryPassword: password },
+    });
+    setBusy(false);
+    if (!res.ok) {
+      toast.error(res.message);
+      return;
+    }
+    const blob = new Blob([res.content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = res.filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    setPassword("");
+    setSelected(null);
+    toast.success("Download iniciado.");
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-end">
+        <Input
+          className="max-w-xs"
+          placeholder="Buscar conversa ou participante…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
+
+      {selected && (
+        <Card>
+          <CardHeader className="border-b border-border">
+            <CardTitle className="text-base font-normal text-admin-heading">
+              Confirmar download — {selected.title ?? selected.participants.join(", ")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <p className="mx-auto mb-4 max-w-3xl text-sm text-muted-foreground">
+              Ação sensível: informe a senha do administrador principal para liberar o histórico.
+            </p>
+            <form onSubmit={download} className="mx-auto max-w-3xl space-y-4">
+              <Field id="dl-pass" label="Senha do ADM principal" required>
+                <Input
+                  id="dl-pass"
+                  type="password"
+                  required
+                  autoComplete="off"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </Field>
+              <div className="flex justify-center gap-3 border-t border-border pt-5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setSelected(null);
+                    setPassword("");
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={busy}
+                  className="bg-admin-success text-white hover:bg-admin-success/90"
+                >
+                  <Download className="size-4" /> Baixar histórico
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader className="border-b border-border">
+          <CardTitle className="text-base font-normal text-admin-heading">Conversas</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto pt-6">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left font-semibold">
+                <th className="pb-3 pr-4">Conversa</th>
+                <th className="pb-3 pr-4">Tipo</th>
+                <th className="pb-3 pr-4">Participantes</th>
+                <th className="pb-3 pr-4">Atualizada em</th>
+                <th className="pb-3">Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-6 text-muted-foreground">
+                    Nenhuma conversa encontrada.
+                  </td>
+                </tr>
+              )}
+              {filtered.map((c) => (
+                <tr key={c.id} className="border-b border-border last:border-0">
+                  <td className="py-4 pr-4">
+                    {c.title ?? (c.is_group ? "Grupo" : c.participants.join(" · "))}
+                  </td>
+                  <td className="py-4 pr-4 text-muted-foreground">
+                    {c.is_group ? "Grupo" : "Direta"}
+                  </td>
+                  <td className="py-4 pr-4 text-muted-foreground">
+                    {c.participants.join(", ") || "—"}
+                  </td>
+                  <td className="py-4 pr-4 text-muted-foreground">
+                    {new Date(c.updated_at).toLocaleString("pt-BR")}
+                  </td>
+                  <td className="py-4">
+                    <Button size="sm" variant="secondary" onClick={() => setSelected(c)}>
+                      <Download className="size-4" /> Baixar
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
