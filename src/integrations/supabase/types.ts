@@ -18,24 +18,30 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_active: boolean
           password_hash: string
           password_salt: string
+          role: string
           updated_at: string
           username: string
         }
         Insert: {
           created_at?: string
           id?: string
+          is_active?: boolean
           password_hash: string
           password_salt: string
+          role?: string
           updated_at?: string
           username: string
         }
         Update: {
           created_at?: string
           id?: string
+          is_active?: boolean
           password_hash?: string
           password_salt?: string
+          role?: string
           updated_at?: string
           username?: string
         }
@@ -142,27 +148,36 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          description: string | null
           email: string | null
           full_name: string
           id: string
+          is_active: boolean
+          sector: string | null
           updated_at: string
           username: string
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          description?: string | null
           email?: string | null
           full_name?: string
           id: string
+          is_active?: boolean
+          sector?: string | null
           updated_at?: string
           username: string
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
+          description?: string | null
           email?: string | null
           full_name?: string
           id?: string
+          is_active?: boolean
+          sector?: string | null
           updated_at?: string
           username?: string
         }
