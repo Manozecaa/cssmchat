@@ -3,11 +3,14 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   ChevronDown,
+  Download,
   Home,
   Loader2,
   LogOut,
   Menu,
+  MessagesSquare,
   Search,
+  Shield,
   SquarePen,
   UserCog,
   Users,
@@ -21,9 +24,16 @@ import {
   adminCreateUser,
   adminUpdateUser,
   adminDeleteUser,
+  adminListAdmins,
+  adminCreateAdmin,
+  adminUpdateAdmin,
+  adminDeleteAdmin,
+  adminListConversations,
+  adminExportConversation,
 } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -56,21 +66,44 @@ type AppUser = {
   email: string | null;
   username: string;
   full_name: string;
+  description: string | null;
+  sector: string | null;
+  is_active: boolean;
   created_at: string;
 };
 
-type View = "home" | "usuarios" | "cadastro" | "credenciais";
+type AdminAccount = {
+  id: string;
+  username: string;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+};
+
+type AdminConversation = {
+  id: string;
+  title: string | null;
+  is_group: boolean;
+  updated_at: string;
+  participants: string[];
+};
+
+type Role = "primary" | "secondary";
+
+type View = "home" | "usuarios" | "cadastro" | "credenciais" | "admins" | "conversas";
 
 function PainelAdm() {
   const [loading, setLoading] = useState(true);
   const [auth, setAuth] = useState(false);
   const [adminName, setAdminName] = useState("");
+  const [role, setRole] = useState<Role>("secondary");
 
   useEffect(() => {
     adminMe()
       .then((r) => {
         setAuth(r.authenticated);
         setAdminName(r.username);
+        setRole(r.role === "primary" ? "primary" : "secondary");
       })
       .catch(() => setAuth(false))
       .finally(() => setLoading(false));
@@ -87,9 +120,10 @@ function PainelAdm() {
   if (!auth) {
     return (
       <LoginScreen
-        onSuccess={(username) => {
+        onSuccess={(username, r) => {
           setAuth(true);
           setAdminName(username);
+          setRole(r);
         }}
       />
     );
@@ -98,6 +132,7 @@ function PainelAdm() {
   return (
     <Shell
       adminName={adminName}
+      role={role}
       onAdminName={setAdminName}
       onLogout={() => {
         setAuth(false);
@@ -107,7 +142,7 @@ function PainelAdm() {
   );
 }
 
-function LoginScreen({ onSuccess }: { onSuccess: (username: string) => void }) {
+function LoginScreen({ onSuccess }: { onSuccess: (username: string, role: Role) => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -121,7 +156,7 @@ function LoginScreen({ onSuccess }: { onSuccess: (username: string) => void }) {
       toast.error("Usuário ou senha inválidos.");
       return;
     }
-    onSuccess(res.username);
+    onSuccess(res.username, res.role === "primary" ? "primary" : "secondary");
   }
 
   return (
@@ -166,10 +201,12 @@ function LoginScreen({ onSuccess }: { onSuccess: (username: string) => void }) {
 
 function Shell({
   adminName,
+  role,
   onAdminName,
   onLogout,
 }: {
   adminName: string;
+  role: Role;
   onAdminName: (v: string) => void;
   onLogout: () => void;
 }) {
@@ -195,6 +232,8 @@ function Shell({
     usuarios: "Usuários",
     cadastro: editing ? "Editar usuário" : "Cadastro de usuários",
     credenciais: "Credenciais do painel",
+    admins: "Administradores",
+    conversas: "Download de conversas",
   };
 
   return (
@@ -209,6 +248,9 @@ function Shell({
         <div className="px-5 pb-5 text-center">
           <p className="text-xs text-admin-sidebar-muted">Bem-vindo</p>
           <p className="text-sm font-semibold">{adminName}</p>
+          <p className="text-xs text-admin-sidebar-muted">
+            {role === "primary" ? "Administrador principal" : "Administrador secundário"}
+          </p>
         </div>
         <p className="px-5 pb-2 text-[11px] font-semibold tracking-wider text-admin-sidebar-muted">
           GENERAL
@@ -236,6 +278,20 @@ function Shell({
               setView("cadastro");
             }}
           />
+          <SideItem
+            icon={MessagesSquare}
+            label="Conversas"
+            active={view === "conversas"}
+            onClick={() => setView("conversas")}
+          />
+          {role === "primary" && (
+            <SideItem
+              icon={Shield}
+              label="Administradores"
+              active={view === "admins"}
+              onClick={() => setView("admins")}
+            />
+          )}
           <SideItem
             icon={UserCog}
             label="Credenciais"
@@ -304,6 +360,10 @@ function Shell({
               }}
             />
           )}
+
+          {view === "conversas" && <ConversationsPanel />}
+
+          {view === "admins" && role === "primary" && <AdminsPanel />}
 
           {view === "credenciais" && (
             <CredentialsForm adminName={adminName} onAdminName={onAdminName} />
