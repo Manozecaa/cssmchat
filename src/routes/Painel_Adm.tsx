@@ -448,6 +448,9 @@ function HomeCards({ count, onGo }: { count: number; onGo: () => void }) {
 function UserForm({ editing, onDone }: { editing: AppUser | null; onDone: () => void }) {
   const [fullName, setFullName] = useState(editing?.full_name ?? "");
   const [username, setUsername] = useState(editing?.username ?? "");
+  const [sector, setSector] = useState(editing?.sector ?? "");
+  const [description, setDescription] = useState(editing?.description ?? "");
+  const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
@@ -455,6 +458,8 @@ function UserForm({ editing, onDone }: { editing: AppUser | null; onDone: () => 
   function clear() {
     setFullName("");
     setUsername("");
+    setSector("");
+    setDescription("");
     setPassword("");
     setConfirm("");
   }
@@ -468,11 +473,17 @@ function UserForm({ editing, onDone }: { editing: AppUser | null; onDone: () => 
     setBusy(true);
     const res = editing
       ? await adminUpdateUser({
-          data: password
-            ? { userId: editing.id, username, fullName, password }
-            : { userId: editing.id, username, fullName },
+          data: {
+            userId: editing.id,
+            username,
+            fullName,
+            sector,
+            description,
+            isActive,
+            ...(password ? { password } : {}),
+          },
         })
-      : await adminCreateUser({ data: { username, password, fullName } });
+      : await adminCreateUser({ data: { username, password, fullName, sector, description } });
     setBusy(false);
     if (!res.ok) {
       toast.error(res.message);
@@ -506,6 +517,25 @@ function UserForm({ editing, onDone }: { editing: AppUser | null; onDone: () => 
               onChange={(e) => setUsername(e.target.value)}
             />
           </Field>
+          <Field id="uf-sector" label="Setor">
+            <Input
+              id="uf-sector"
+              maxLength={80}
+              placeholder="Ex.: Financeiro"
+              value={sector}
+              onChange={(e) => setSector(e.target.value)}
+            />
+          </Field>
+          <Field id="uf-desc" label="Descrição">
+            <Textarea
+              id="uf-desc"
+              rows={3}
+              maxLength={500}
+              placeholder="Cargo, responsabilidades, observações…"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </Field>
           <Field id="uf-pass" label={editing ? "Nova senha (opcional)" : "Senha"} required={!editing}>
             <Input
               id="uf-pass"
@@ -526,6 +556,20 @@ function UserForm({ editing, onDone }: { editing: AppUser | null; onDone: () => 
               onChange={(e) => setConfirm(e.target.value)}
             />
           </Field>
+          {editing && (
+            <Field id="uf-active" label="Usuário ativo">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  id="uf-active"
+                  type="checkbox"
+                  className="size-4"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
+                />
+                Usuários inativos não aparecem no chat e não podem ser contatados.
+              </label>
+            </Field>
+          )}
 
           <div className="flex justify-center gap-3 border-t border-border pt-5">
             <Button type="button" variant="outline" onClick={clear}>
