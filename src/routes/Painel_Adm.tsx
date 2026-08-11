@@ -626,7 +626,10 @@ function UsersTable({
     const q = query.trim().toLowerCase();
     if (!q) return users;
     return users.filter(
-      (u) => u.full_name.toLowerCase().includes(q) || u.username.toLowerCase().includes(q),
+      (u) =>
+        u.full_name.toLowerCase().includes(q) ||
+        u.username.toLowerCase().includes(q) ||
+        (u.sector ?? "").toLowerCase().includes(q),
     );
   }, [users, query]);
 
@@ -661,6 +664,8 @@ function UsersTable({
               <tr className="border-b border-border text-left align-top font-semibold">
                 <th className="pb-3 pr-4">Nome</th>
                 <th className="pb-3 pr-4">Usuário</th>
+                <th className="pb-3 pr-4">Setor</th>
+                <th className="pb-3 pr-4">Status</th>
                 <th className="pb-3 pr-4">Criado em</th>
                 <th className="pb-3">Ação</th>
               </tr>
@@ -668,7 +673,7 @@ function UsersTable({
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="py-6 text-muted-foreground">
+                  <td colSpan={6} className="py-6 text-muted-foreground">
                     Nenhum usuário encontrado.
                   </td>
                 </tr>
@@ -677,6 +682,19 @@ function UsersTable({
                 <tr key={u.id} className="border-b border-border last:border-0">
                   <td className="py-4 pr-4">{u.full_name}</td>
                   <td className="py-4 pr-4 text-muted-foreground">@{u.username}</td>
+                  <td className="py-4 pr-4 text-muted-foreground">{u.sector || "—"}</td>
+                  <td className="py-4 pr-4">
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-xs",
+                        u.is_active
+                          ? "bg-admin-success/15 text-admin-success"
+                          : "bg-admin-danger/15 text-admin-danger",
+                      )}
+                    >
+                      {u.is_active ? "Ativo" : "Inativo"}
+                    </span>
+                  </td>
                   <td className="py-4 pr-4 text-muted-foreground">
                     {new Date(u.created_at).toLocaleDateString("pt-BR")}
                   </td>
@@ -691,7 +709,14 @@ function UsersTable({
                       </Button>
                       <Button
                         size="sm"
-                        onClick={() => onDelete(u)}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `Excluir definitivamente o usuário ${u.full_name}? Esta ação não pode ser desfeita.`,
+                            )
+                          )
+                            onDelete(u);
+                        }}
                         className="bg-admin-danger text-white hover:bg-admin-danger/90"
                       >
                         Excluir
