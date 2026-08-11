@@ -927,7 +927,10 @@ function AdminsPanel() {
                             const res = await adminUpdateAdmin({
                               data: { adminId: a.id, isActive: !a.is_active },
                             });
-                            if (!res.ok) return toast.error(res.message);
+                            if (!res.ok) {
+                              toast.error(res.message);
+                              return;
+                            }
                             toast.success(res.message);
                             void refresh();
                           }}
@@ -943,7 +946,10 @@ function AdminsPanel() {
                             const res = await adminUpdateAdmin({
                               data: { adminId: a.id, password: pass },
                             });
-                            if (!res.ok) return toast.error(res.message);
+                            if (!res.ok) {
+                              toast.error(res.message);
+                              return;
+                            }
                             toast.success(res.message);
                           }}
                         >
@@ -955,7 +961,10 @@ function AdminsPanel() {
                           onClick={async () => {
                             if (!window.confirm(`Remover o administrador ${a.username}?`)) return;
                             const res = await adminDeleteAdmin({ data: { adminId: a.id } });
-                            if (!res.ok) return toast.error(res.message);
+                            if (!res.ok) {
+                              toast.error(res.message);
+                              return;
+                            }
                             toast.success(res.message);
                             void refresh();
                           }}
