@@ -47,12 +47,55 @@ export type Database = {
         }
         Relationships: []
       }
+      conversation_events: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          created_by: string
+          description: string | null
+          duration_minutes: number
+          id: string
+          starts_at: string
+          title: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          starts_at: string
+          title: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          starts_at?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_events_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversation_members: {
         Row: {
           conversation_id: string
           is_admin: boolean
           joined_at: string
           last_read_at: string
+          muted_until: string | null
+          sound: string
           user_id: string
         }
         Insert: {
@@ -60,6 +103,8 @@ export type Database = {
           is_admin?: boolean
           joined_at?: string
           last_read_at?: string
+          muted_until?: string | null
+          sound?: string
           user_id: string
         }
         Update: {
@@ -67,6 +112,8 @@ export type Database = {
           is_admin?: boolean
           joined_at?: string
           last_read_at?: string
+          muted_until?: string | null
+          sound?: string
           user_id?: string
         }
         Relationships: [
@@ -108,6 +155,10 @@ export type Database = {
       }
       messages: {
         Row: {
+          attachment_name: string | null
+          attachment_path: string | null
+          attachment_size: number | null
+          attachment_type: string | null
           content: string
           conversation_id: string
           created_at: string
@@ -117,7 +168,11 @@ export type Database = {
           sender_id: string
         }
         Insert: {
-          content: string
+          attachment_name?: string | null
+          attachment_path?: string | null
+          attachment_size?: number | null
+          attachment_type?: string | null
+          content?: string
           conversation_id: string
           created_at?: string
           deleted_at?: string | null
@@ -126,6 +181,10 @@ export type Database = {
           sender_id: string
         }
         Update: {
+          attachment_name?: string | null
+          attachment_path?: string | null
+          attachment_size?: number | null
+          attachment_type?: string | null
           content?: string
           conversation_id?: string
           created_at?: string
@@ -154,6 +213,7 @@ export type Database = {
           id: string
           is_active: boolean
           sector: string | null
+          status: string
           updated_at: string
           username: string
         }
@@ -166,6 +226,7 @@ export type Database = {
           id: string
           is_active?: boolean
           sector?: string | null
+          status?: string
           updated_at?: string
           username: string
         }
@@ -178,6 +239,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           sector?: string | null
+          status?: string
           updated_at?: string
           username?: string
         }
