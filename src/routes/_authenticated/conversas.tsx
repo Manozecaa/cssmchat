@@ -363,25 +363,27 @@ function ConversationsPage() {
       return;
     }
 
-    const { data: conv, error } = await supabase
-      .from("conversations")
-      .insert({
-        created_by: me,
-        is_group: isGroup,
-        title: isGroup ? groupName.trim() || "Novo grupo" : null,
-      })
-      .select("id, title, is_group, updated_at")
-      .single();
-    if (error || !conv) {
+    // O id é gerado no cliente: a política de leitura exige participação,
+    // então não é possível usar .select() no mesmo insert.
+    const convId = crypto.randomUUID();
+    const { error } = await supabase.from("conversations").insert({
+      id: convId,
+      created_by: me,
+      is_group: isGroup,
+      title: isGroup ? groupName.trim() || "Novo grupo" : null,
+    });
+    if (error) {
+      console.error("createConversation", error);
       toast.error("Não foi possível criar a conversa.");
       return;
     }
     const rows = [
-      { conversation_id: conv.id, user_id: me, is_admin: true },
-      ...picked.map((uid) => ({ conversation_id: conv.id, user_id: uid, is_admin: false })),
+      { conversation_id: convId, user_id: me, is_admin: true },
+      ...picked.map((uid) => ({ conversation_id: convId, user_id: uid, is_admin: false })),
     ];
     const { error: memErr } = await supabase.from("conversation_members").insert(rows);
     if (memErr) {
+      console.error("addMembers", memErr);
       toast.error("Não foi possível adicionar os participantes.");
       return;
     }
@@ -389,7 +391,7 @@ function ConversationsPage() {
     setPicked([]);
     setGroupName("");
     await loadConversations();
-    setActiveId(conv.id);
+    setActiveId(convId);
   }
 
   async function send(e: React.FormEvent) {
