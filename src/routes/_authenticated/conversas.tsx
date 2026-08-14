@@ -117,12 +117,24 @@ type Profile = {
   sector: string | null;
   status: string | null;
 };
-type Conversation = { id: string; title: string | null; is_group: boolean; updated_at: string };
+type Conversation = {
+  id: string;
+  title: string | null;
+  is_group: boolean;
+  updated_at: string;
+  avatar_path: string | null;
+  only_admins_send: boolean;
+};
 type Member = {
   conversation_id: string;
   user_id: string;
   muted_until: string | null;
   sound: string | null;
+  is_admin: boolean;
+  can_send: boolean;
+  pinned: boolean;
+  hidden_at: string | null;
+  last_read_at: string;
 };
 type Message = {
   id: string;
