@@ -1423,6 +1423,14 @@ function ConversationsPage() {
               </div>
             </ScrollArea>
 
+            {active.is_group &&
+            active.only_admins_send &&
+            !activeMembership?.is_admin &&
+            !activeMembership?.can_send ? (
+              <div className="border-t border-border px-6 py-4 text-center text-sm text-muted-foreground">
+                Apenas administradores podem enviar mensagens neste grupo.
+              </div>
+            ) : (
             <form onSubmit={send} className="border-t border-border px-6 py-4">
               {pendingFile && (
                 <div className="mb-2 flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 text-xs">
