@@ -394,21 +394,122 @@ function ConversationsPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Marca a conversa aberta como lida (recibo de leitura estilo WhatsApp)
+  useEffect(() => {
+    if (!activeId || !me) return;
+    void supabase
+      .from("conversation_members")
+      .update({ last_read_at: new Date().toISOString() })
+      .eq("conversation_id", activeId)
+      .eq("user_id", me);
+  }, [activeId, me, messages.length]);
+
+  function otherMember(c: Conversation) {
+    const other = members.find((m) => m.conversation_id === c.id && m.user_id !== me);
+    return other ? (profileMap[other.user_id] ?? null) : null;
+  }
+
   function conversationLabel(c: Conversation) {
     if (c.title) return c.title;
-    const other = members.find((m) => m.conversation_id === c.id && m.user_id !== me);
-    return other ? (profileMap[other.user_id]?.full_name ?? "Conversa") : "Conversa";
+    return otherMember(c)?.full_name ?? "Conversa";
   }
 
   function conversationAvatar(c: Conversation) {
-    const other = members.find((m) => m.conversation_id === c.id && m.user_id !== me);
-    return other ? avatarSrc(profileMap[other.user_id]?.avatar_url, signed) : undefined;
+    if (c.is_group) return avatarSrc(c.avatar_path, signed);
+    return avatarSrc(otherMember(c)?.avatar_url, signed);
   }
 
   function isMuted(conversationId: string) {
     const m = members.find((x) => x.conversation_id === conversationId && x.user_id === me);
     return !!m?.muted_until && new Date(m.muted_until) > new Date();
   }
+
+  function conversationMembers(conversationId: string) {
+    return members.filter((m) => m.conversation_id === conversationId);
+  }
+
+  function isGroupAdmin(conversationId: string) {
+    return !!members.find(
+      (m) => m.conversation_id === conversationId && m.user_id === me && m.is_admin,
+    );
+  }
+
+  function hasUnread(c: Conversation) {
+    const mine = members.find((m) => m.conversation_id === c.id && m.user_id === me);
+    const last = lastMessages[c.id];
+    if (!mine || !last || last.sender_id === me) return false;
+    return new Date(last.created_at) > new Date(mine.last_read_at);
+  }
+
+  function lastMessageTime(c: Conversation) {
+    const last = lastMessages[c.id];
+    const iso = last?.created_at ?? c.updated_at;
+    const date = new Date(iso);
+    const today = new Date();
+    const sameDay = date.toDateString() === today.toDateString();
+    return sameDay
+      ? date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+      : date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  }
+
+  /** Uma mensagem minha é considerada lida quando todos os outros participantes já abriram a conversa depois dela. */
+  function isMessageRead(m: Message) {
+    const others = conversationMembers(m.conversation_id).filter((x) => x.user_id !== me);
+    if (others.length === 0) return false;
+    return others.every((x) => new Date(x.last_read_at) >= new Date(m.created_at));
+  }
+
+  async function togglePin(conversationId: string, pinned: boolean) {
+    if (!me) return;
+    const { error } = await supabase
+      .from("conversation_members")
+      .update({ pinned })
+      .eq("conversation_id", conversationId)
+      .eq("user_id", me);
+    if (error) {
+      toast.error("Não foi possível fixar a conversa.");
+      return;
+    }
+    await loadConversations();
+  }
+
+  /** Some com a conversa apenas para o usuário; o painel do ADM continua com o histórico. */
+  async function hideConversation(conversationId: string) {
+    if (!me) return;
+    const { error } = await supabase
+      .from("conversation_members")
+      .update({ hidden_at: new Date().toISOString() })
+      .eq("conversation_id", conversationId)
+      .eq("user_id", me);
+    if (error) {
+      toast.error("Não foi possível excluir a conversa da sua lista.");
+      return;
+    }
+    if (activeId === conversationId) setActiveId(null);
+    await loadConversations();
+    toast.success("Conversa removida da sua lista.");
+  }
+
+  const visibleConversations = useMemo(() => {
+    const list = conversations.filter((c) => {
+      const mine = members.find((m) => m.conversation_id === c.id && m.user_id === me);
+      if (!mine) return false;
+      if (!mine.hidden_at) return true;
+      const last = lastMessages[c.id];
+      // Uma mensagem nova depois da exclusão traz a conversa de volta.
+      return !!last && new Date(last.created_at) > new Date(mine.hidden_at);
+    });
+    const time = (c: Conversation) =>
+      new Date(lastMessages[c.id]?.created_at ?? c.updated_at).getTime();
+    const pinnedOf = (c: Conversation) =>
+      members.find((m) => m.conversation_id === c.id && m.user_id === me)?.pinned ?? false;
+    return list.sort((a, b) => {
+      const pa = pinnedOf(a) ? 1 : 0;
+      const pb = pinnedOf(b) ? 1 : 0;
+      if (pa !== pb) return pb - pa;
+      return time(b) - time(a);
+    });
+  }, [conversations, members, lastMessages, me]);
 
   /** Procura uma conversa direta já existente entre mim e o outro usuário. */
   function findDirect(otherId: string, convs: Conversation[], mems: Member[]) {
