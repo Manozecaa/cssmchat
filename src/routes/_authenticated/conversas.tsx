@@ -147,6 +147,7 @@ type Message = {
   attachment_type: string | null;
   attachment_size: number | null;
 };
+type LastMessage = { sender_id: string; created_at: string; preview: string };
 type ChatEvent = {
   id: string;
   conversation_id: string;
