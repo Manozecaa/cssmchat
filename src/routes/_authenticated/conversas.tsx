@@ -1355,12 +1355,23 @@ function ConversationsPage() {
                         </AvatarFallback>
                       </Avatar>
                       <div className={cn("max-w-[70%]", mine && "text-right")}>
-                        <p className="text-xs text-muted-foreground">
+                        <p
+                          className={cn(
+                            "flex items-center gap-1 text-xs text-muted-foreground",
+                            mine && "justify-end",
+                          )}
+                        >
                           {profileMap[m.sender_id]?.full_name ?? "Usuário"} ·{" "}
                           {new Date(m.created_at).toLocaleTimeString("pt-BR", {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
+                          {mine &&
+                            (isMessageRead(m) ? (
+                              <CheckCheck className="size-3.5 text-sky-500" />
+                            ) : (
+                              <Check className="size-3.5" />
+                            ))}
                         </p>
                         {m.attachment_path && (
                           <div className="mt-1">
