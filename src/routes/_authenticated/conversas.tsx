@@ -965,26 +965,106 @@ function ConversationsPage() {
 
         <ScrollArea className="flex-1">
           <nav className="space-y-1 px-2 pb-4">
-            {conversations.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setActiveId(c.id)}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-accent",
-                  c.id === activeId && "bg-accent font-medium",
-                )}
-              >
-                <Avatar className="size-8">
-                  <AvatarImage src={conversationAvatar(c)} alt="" />
-                  <AvatarFallback className="text-xs">
-                    {c.is_group ? <Users className="size-4" /> : initials(conversationLabel(c))}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="min-w-0 flex-1 truncate">{conversationLabel(c)}</span>
-                {isMuted(c.id) && <BellOff className="size-3.5 shrink-0 text-muted-foreground" />}
-              </button>
-            ))}
-            {conversations.length === 0 && (
+            {visibleConversations.map((c) => {
+              const mine = members.find((m) => m.conversation_id === c.id && m.user_id === me);
+              const unread = hasUnread(c);
+              const other = c.is_group ? null : otherMember(c);
+              return (
+                <div
+                  key={c.id}
+                  className={cn(
+                    "group flex items-center gap-2 rounded-md px-2 py-2 transition-colors hover:bg-accent",
+                    c.id === activeId && "bg-accent",
+                  )}
+                >
+                  <button
+                    onClick={() => setActiveId(c.id)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left text-sm"
+                  >
+                    <span className="relative shrink-0">
+                      <Avatar className="size-9">
+                        <AvatarImage src={conversationAvatar(c)} alt="" />
+                        <AvatarFallback className="text-xs">
+                          {c.is_group ? (
+                            <Users className="size-4" />
+                          ) : (
+                            initials(conversationLabel(c))
+                          )}
+                        </AvatarFallback>
+                      </Avatar>
+                      {other && (
+                        <span
+                          title={statusMeta(other.status).label}
+                          className={cn(
+                            "absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-background",
+                            statusMeta(other.status).color,
+                          )}
+                        />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1.5">
+                        {mine?.pinned && <Pin className="size-3 shrink-0 text-muted-foreground" />}
+                        <span
+                          className={cn("min-w-0 flex-1 truncate", unread && "font-bold")}
+                        >
+                          {conversationLabel(c)}
+                        </span>
+                        {unread && <span className="size-2 shrink-0 rounded-full bg-orange-500" />}
+                        <span className="shrink-0 text-[11px] text-muted-foreground">
+                          {lastMessageTime(c)}
+                        </span>
+                      </span>
+                      <span className="mt-0.5 flex items-center gap-1">
+                        <span
+                          className={cn(
+                            "min-w-0 flex-1 truncate text-xs",
+                            unread ? "font-semibold text-foreground" : "text-muted-foreground",
+                          )}
+                        >
+                          {other?.sector || lastMessages[c.id]?.preview || "Sem mensagens"}
+                        </span>
+                        {isMuted(c.id) && (
+                          <BellOff className="size-3 shrink-0 text-muted-foreground" />
+                        )}
+                      </span>
+                    </span>
+                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 shrink-0 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+                      >
+                        <MoreVertical className="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => togglePin(c.id, !mine?.pinned)}>
+                        {mine?.pinned ? (
+                          <>
+                            <PinOff className="size-4" /> Desafixar
+                          </>
+                        ) : (
+                          <>
+                            <Pin className="size-4" /> Fixar no topo
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => hideConversation(c.id)}
+                      >
+                        <Trash2 className="size-4" /> Excluir da minha lista
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              );
+            })}
+            {visibleConversations.length === 0 && (
               <p className="px-3 py-6 text-sm text-muted-foreground">
                 Você ainda não tem conversas.
               </p>
