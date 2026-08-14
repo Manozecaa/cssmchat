@@ -845,11 +845,79 @@ function ConversationsPage() {
                 onChange={(e) => setSearch(e.target.value)}
               />
               {picked.length > 1 && (
-                <Input
-                  placeholder="Nome do grupo"
-                  value={groupName}
-                  onChange={(e) => setGroupName(e.target.value)}
-                />
+                <div className="space-y-3 rounded-md border border-border p-3">
+                  <Input
+                    placeholder="Nome do grupo"
+                    value={groupName}
+                    onChange={(e) => setGroupName(e.target.value)}
+                  />
+                  <div className="flex items-center gap-3">
+                    <Avatar className="size-12">
+                      <AvatarImage
+                        src={groupPhoto ? URL.createObjectURL(groupPhoto) : undefined}
+                        alt=""
+                      />
+                      <AvatarFallback>
+                        <Users className="size-5" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => groupPhotoRef.current?.click()}
+                    >
+                      <ImageIcon className="size-4" /> Foto do grupo
+                    </Button>
+                    {groupPhoto && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setGroupPhoto(null)}
+                      >
+                        Remover
+                      </Button>
+                    )}
+                    <input
+                      ref={groupPhotoRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!file) return;
+                        if (file.size > 8 * 1024 * 1024) {
+                          toast.error("A imagem deve ter no máximo 8 MB.");
+                          return;
+                        }
+                        setGroupPhoto(file);
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Administradores do grupo</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {picked.map((id) => (
+                        <label
+                          key={id}
+                          className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-2 py-1 text-xs"
+                        >
+                          <Checkbox
+                            checked={groupAdmins.includes(id)}
+                            onCheckedChange={(v) =>
+                              setGroupAdmins((prev) =>
+                                v ? [...prev, id] : prev.filter((x) => x !== id),
+                              )
+                            }
+                          />
+                          {profileMap[id]?.full_name ?? "Usuário"}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               )}
               <ScrollArea className="max-h-64 pr-3">
                 <div className="space-y-1">
