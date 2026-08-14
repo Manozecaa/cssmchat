@@ -247,17 +247,25 @@ function ConversationsPage() {
       if (!cancelled) setEvents(data ?? []);
     };
 
-    void (async () => {
+    const loadMessages = async () => {
       const { data } = await supabase
         .from("messages")
         .select(MESSAGE_COLUMNS)
         .eq("conversation_id", activeId)
         .is("deleted_at", null)
         .order("created_at", { ascending: true });
-      if (cancelled) return;
-      setMessages(data ?? []);
-      setFiles(await signAttachments((data ?? []).map((m) => m.attachment_path)));
-    })();
+      if (cancelled || !data) return;
+      setMessages((prev) =>
+        prev.length === data.length && prev.every((m, i) => m.id === data[i]?.id) ? prev : data,
+      );
+      const paths = data.map((m) => m.attachment_path).filter(Boolean) as string[];
+      if (paths.length > 0) {
+        const next = await signAttachments(paths);
+        if (!cancelled) setFiles((prev) => ({ ...prev, ...next }));
+      }
+    };
+
+    void loadMessages();
     void loadEvents();
 
     const channel = supabase
@@ -292,11 +300,35 @@ function ConversationsPage() {
       )
       .subscribe();
 
+    // Polling de segurança: mantém o chat fluido mesmo se o tempo real cair
+    const timer = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      void loadMessages();
+      void loadEvents();
+    }, 5000);
+
     return () => {
       cancelled = true;
+      clearInterval(timer);
       supabase.removeChannel(channel);
     };
   }, [activeId]);
+
+  // Atualiza a lista de conversas/participantes a cada 5s
+  useEffect(() => {
+    const tick = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      void loadConversations();
+    };
+    const timer = setInterval(tick, 5000);
+    const onVisible = () => tick();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [loadConversations]);
+
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
