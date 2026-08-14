@@ -207,21 +207,46 @@ function ConversationsPage() {
       .select("id, full_name, username, email, avatar_url, description, sector, status")
       .order("full_name", { ascending: true });
     setProfiles(profs ?? []);
-    setSigned(await signAvatars((profs ?? []).map((p) => p.avatar_url)));
+    const map = await signAvatars((profs ?? []).map((p) => p.avatar_url));
+    setSigned((prev) => ({ ...prev, ...map }));
   }, []);
 
   const loadConversations = useCallback(async () => {
-    const [{ data: convs }, { data: mems }] = await Promise.all([
+    const [{ data: convs }, { data: mems }, { data: recent }] = await Promise.all([
       supabase
         .from("conversations")
-        .select("id, title, is_group, updated_at")
+        .select("id, title, is_group, updated_at, avatar_path, only_admins_send")
         .order("updated_at", { ascending: false }),
       supabase
         .from("conversation_members")
-        .select("conversation_id, user_id, muted_until, sound"),
+        .select(
+          "conversation_id, user_id, muted_until, sound, is_admin, can_send, pinned, hidden_at, last_read_at",
+        ),
+      supabase
+        .from("messages")
+        .select("id, conversation_id, sender_id, content, created_at, attachment_name")
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(400),
     ]);
     setConversations(convs ?? []);
     setMembers(mems ?? []);
+
+    const last: Record<string, LastMessage> = {};
+    for (const row of recent ?? []) {
+      if (!last[row.conversation_id]) {
+        last[row.conversation_id] = {
+          sender_id: row.sender_id,
+          created_at: row.created_at,
+          preview: row.content || (row.attachment_name ? `📎 ${row.attachment_name}` : ""),
+        };
+      }
+    }
+    setLastMessages(last);
+
+    const convAvatars = await signAvatars((convs ?? []).map((c) => c.avatar_path));
+    setSigned((prev) => ({ ...prev, ...convAvatars }));
+
     return { convs: convs ?? [], mems: mems ?? [] };
   }, []);
 
@@ -234,6 +259,11 @@ function ConversationsPage() {
       if (convs.length > 0) setActiveId(convs[0]!.id);
     })();
   }, [loadProfiles, loadConversations]);
+
+  useSessionTimeout(() => {
+    toast.info("Sessão encerrada por inatividade.");
+    navigate({ to: "/auth", replace: true });
+  });
 
   // Notificação sonora global (respeita silenciar e som por conversa)
   useEffect(() => {
