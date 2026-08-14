@@ -47,6 +47,27 @@ export type Database = {
         }
         Relationships: []
       }
+      app_settings: {
+        Row: {
+          created_at: string
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          created_at?: string
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       conversation_events: {
         Row: {
           conversation_id: string
@@ -90,29 +111,38 @@ export type Database = {
       }
       conversation_members: {
         Row: {
+          can_send: boolean
           conversation_id: string
+          hidden_at: string | null
           is_admin: boolean
           joined_at: string
           last_read_at: string
           muted_until: string | null
+          pinned: boolean
           sound: string
           user_id: string
         }
         Insert: {
+          can_send?: boolean
           conversation_id: string
+          hidden_at?: string | null
           is_admin?: boolean
           joined_at?: string
           last_read_at?: string
           muted_until?: string | null
+          pinned?: boolean
           sound?: string
           user_id: string
         }
         Update: {
+          can_send?: boolean
           conversation_id?: string
+          hidden_at?: string | null
           is_admin?: boolean
           joined_at?: string
           last_read_at?: string
           muted_until?: string | null
+          pinned?: boolean
           sound?: string
           user_id?: string
         }
@@ -128,26 +158,32 @@ export type Database = {
       }
       conversations: {
         Row: {
+          avatar_path: string | null
           created_at: string
           created_by: string
           id: string
           is_group: boolean
+          only_admins_send: boolean
           title: string | null
           updated_at: string
         }
         Insert: {
+          avatar_path?: string | null
           created_at?: string
           created_by: string
           id?: string
           is_group?: boolean
+          only_admins_send?: boolean
           title?: string | null
           updated_at?: string
         }
         Update: {
+          avatar_path?: string | null
           created_at?: string
           created_by?: string
           id?: string
           is_group?: boolean
+          only_admins_send?: boolean
           title?: string | null
           updated_at?: string
         }
