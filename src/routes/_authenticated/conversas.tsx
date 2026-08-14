@@ -1076,16 +1076,175 @@ function ConversationsPage() {
       <main className="flex min-w-0 flex-1 flex-col">
         {active ? (
           <>
-            <header className="flex items-center gap-3 border-b border-border px-6 py-4">
+            <header className="flex flex-wrap items-center gap-3 border-b border-border px-6 py-4">
+              <Avatar className="size-10">
+                <AvatarImage src={conversationAvatar(active)} alt="" />
+                <AvatarFallback className="text-xs">
+                  {active.is_group ? (
+                    <Users className="size-4" />
+                  ) : (
+                    initials(conversationLabel(active))
+                  )}
+                </AvatarFallback>
+              </Avatar>
+
               <div className="min-w-0 flex-1">
-                <h1 className="truncate text-base font-semibold tracking-tight">
-                  {conversationLabel(active)}
-                </h1>
-                <p className="text-xs text-muted-foreground">
-                  {members.filter((m) => m.conversation_id === active.id).length} participante(s)
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="flex max-w-full items-center gap-1 text-left">
+                    <h1 className="truncate text-base font-semibold tracking-tight">
+                      {conversationLabel(active)}
+                    </h1>
+                    <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-72">
+                    <DropdownMenuLabel>Participantes</DropdownMenuLabel>
+                    {conversationMembers(active.id).map((m) => {
+                      const p = profileMap[m.user_id];
+                      return (
+                        <div
+                          key={m.user_id}
+                          className="flex items-center gap-2 px-2 py-1.5 text-sm"
+                        >
+                          <Avatar className="size-6">
+                            <AvatarImage src={avatarSrc(p?.avatar_url, signed)} alt="" />
+                            <AvatarFallback className="text-[10px]">
+                              {initials(p?.full_name ?? "?")}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="min-w-0 flex-1 truncate">
+                            {p?.full_name ?? "Usuário"}
+                            {m.is_admin && (
+                              <Shield className="ml-1 inline size-3 text-muted-foreground" />
+                            )}
+                          </span>
+                          {active.is_group && isGroupAdmin(active.id) && m.user_id !== me && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-6"
+                              aria-label="Remover do grupo"
+                              onClick={() => removeMember(active.id, m.user_id)}
+                            >
+                              <UserMinus className="size-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  {active.is_group
+                    ? `${conversationMembers(active.id).length} participante(s)`
+                    : (otherMember(active)?.sector ??
+                      otherMember(active)?.description ??
+                      "Conversa direta")}
                   {isMuted(active.id) ? " · silenciada" : ""}
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 font-mono text-[10px] hover:bg-accent"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(active.id);
+                      toast.success("ID da conversa copiado.");
+                    }}
+                  >
+                    <Copy className="size-3" /> {active.id}
+                  </button>
                 </p>
               </div>
+
+              {active.is_group && isGroupAdmin(active.id) && (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => setGroupOpen(true)}>
+                    <Settings className="size-4" /> Grupo
+                  </Button>
+                  <Dialog open={groupOpen} onOpenChange={setGroupOpen}>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Configurações do grupo</DialogTitle>
+                        <DialogDescription>
+                          Defina a foto, os administradores e quem pode enviar mensagens.
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      <div className="flex items-center gap-3">
+                        <Avatar className="size-14">
+                          <AvatarImage src={conversationAvatar(active)} alt="" />
+                          <AvatarFallback>
+                            <Users className="size-5" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => groupPhotoRef.current?.click()}
+                        >
+                          <ImageIcon className="size-4" /> Alterar foto
+                        </Button>
+                        <input
+                          ref={groupPhotoRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = "";
+                            if (file) void uploadGroupAvatar(active.id, file);
+                          }}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between rounded-md border border-border p-3">
+                        <div>
+                          <p className="text-sm font-medium">Somente administradores enviam</p>
+                          <p className="text-xs text-muted-foreground">
+                            Libere pessoas específicas na lista abaixo.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={active.only_admins_send}
+                          onCheckedChange={(v) => setOnlyAdminsSend(active.id, v)}
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        {conversationMembers(active.id).map((m) => (
+                          <div
+                            key={m.user_id}
+                            className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5 text-sm"
+                          >
+                            <span className="min-w-0 flex-1 truncate">
+                              {profileMap[m.user_id]?.full_name ?? "Usuário"}
+                            </span>
+                            <label className="flex items-center gap-1 text-xs">
+                              <Checkbox
+                                checked={m.is_admin}
+                                disabled={m.user_id === me}
+                                onCheckedChange={(v) =>
+                                  updateMemberFlags(active.id, m.user_id, { is_admin: !!v })
+                                }
+                              />
+                              Admin
+                            </label>
+                            <label className="flex items-center gap-1 text-xs">
+                              <Checkbox
+                                checked={m.can_send}
+                                disabled={m.is_admin}
+                                onCheckedChange={(v) =>
+                                  updateMemberFlags(active.id, m.user_id, { can_send: !!v })
+                                }
+                              />
+                              Pode enviar
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </>
+              )}
 
               <Button variant="outline" size="sm" onClick={() => setEventOpen(true)}>
                 <CalendarPlus className="size-4" /> Evento
