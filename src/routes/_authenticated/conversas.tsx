@@ -5,15 +5,25 @@ import {
   Bell,
   BellOff,
   CalendarPlus,
+  Check,
+  CheckCheck,
+  ChevronDown,
+  Copy,
   Download,
   FileText,
+  Image as ImageIcon,
   LogOut,
+  MoreVertical,
   Paperclip,
+  Pin,
+  PinOff,
   Plus,
   Send,
   Settings,
+  Shield,
   Trash2,
   Upload,
+  UserMinus,
   Users,
   X,
 } from "lucide-react";
@@ -36,6 +46,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { useSessionTimeout } from "@/hooks/use-session-timeout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -105,12 +117,24 @@ type Profile = {
   sector: string | null;
   status: string | null;
 };
-type Conversation = { id: string; title: string | null; is_group: boolean; updated_at: string };
+type Conversation = {
+  id: string;
+  title: string | null;
+  is_group: boolean;
+  updated_at: string;
+  avatar_path: string | null;
+  only_admins_send: boolean;
+};
 type Member = {
   conversation_id: string;
   user_id: string;
   muted_until: string | null;
   sound: string | null;
+  is_admin: boolean;
+  can_send: boolean;
+  pinned: boolean;
+  hidden_at: string | null;
+  last_read_at: string;
 };
 type Message = {
   id: string;
@@ -123,6 +147,7 @@ type Message = {
   attachment_type: string | null;
   attachment_size: number | null;
 };
+type LastMessage = { sender_id: string; created_at: string; preview: string };
 type ChatEvent = {
   id: string;
   conversation_id: string;
@@ -146,6 +171,11 @@ function ConversationsPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [lastMessages, setLastMessages] = useState<Record<string, LastMessage>>({});
+  const [groupOpen, setGroupOpen] = useState(false);
+  const [groupPhoto, setGroupPhoto] = useState<File | null>(null);
+  const [groupAdmins, setGroupAdmins] = useState<string[]>([]);
+  const groupPhotoRef = useRef<HTMLInputElement>(null);
   const [events, setEvents] = useState<ChatEvent[]>([]);
   const [draft, setDraft] = useState("");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -183,21 +213,46 @@ function ConversationsPage() {
       .select("id, full_name, username, email, avatar_url, description, sector, status")
       .order("full_name", { ascending: true });
     setProfiles(profs ?? []);
-    setSigned(await signAvatars((profs ?? []).map((p) => p.avatar_url)));
+    const map = await signAvatars((profs ?? []).map((p) => p.avatar_url));
+    setSigned((prev) => ({ ...prev, ...map }));
   }, []);
 
   const loadConversations = useCallback(async () => {
-    const [{ data: convs }, { data: mems }] = await Promise.all([
+    const [{ data: convs }, { data: mems }, { data: recent }] = await Promise.all([
       supabase
         .from("conversations")
-        .select("id, title, is_group, updated_at")
+        .select("id, title, is_group, updated_at, avatar_path, only_admins_send")
         .order("updated_at", { ascending: false }),
       supabase
         .from("conversation_members")
-        .select("conversation_id, user_id, muted_until, sound"),
+        .select(
+          "conversation_id, user_id, muted_until, sound, is_admin, can_send, pinned, hidden_at, last_read_at",
+        ),
+      supabase
+        .from("messages")
+        .select("id, conversation_id, sender_id, content, created_at, attachment_name")
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(400),
     ]);
     setConversations(convs ?? []);
     setMembers(mems ?? []);
+
+    const last: Record<string, LastMessage> = {};
+    for (const row of recent ?? []) {
+      if (!last[row.conversation_id]) {
+        last[row.conversation_id] = {
+          sender_id: row.sender_id,
+          created_at: row.created_at,
+          preview: row.content || (row.attachment_name ? `📎 ${row.attachment_name}` : ""),
+        };
+      }
+    }
+    setLastMessages(last);
+
+    const convAvatars = await signAvatars((convs ?? []).map((c) => c.avatar_path));
+    setSigned((prev) => ({ ...prev, ...convAvatars }));
+
     return { convs: convs ?? [], mems: mems ?? [] };
   }, []);
 
@@ -210,6 +265,11 @@ function ConversationsPage() {
       if (convs.length > 0) setActiveId(convs[0]!.id);
     })();
   }, [loadProfiles, loadConversations]);
+
+  useSessionTimeout(() => {
+    toast.info("Sessão encerrada por inatividade.");
+    navigate({ to: "/auth", replace: true });
+  });
 
   // Notificação sonora global (respeita silenciar e som por conversa)
   useEffect(() => {
@@ -334,21 +394,122 @@ function ConversationsPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Marca a conversa aberta como lida (recibo de leitura estilo WhatsApp)
+  useEffect(() => {
+    if (!activeId || !me) return;
+    void supabase
+      .from("conversation_members")
+      .update({ last_read_at: new Date().toISOString() })
+      .eq("conversation_id", activeId)
+      .eq("user_id", me);
+  }, [activeId, me, messages.length]);
+
+  function otherMember(c: Conversation) {
+    const other = members.find((m) => m.conversation_id === c.id && m.user_id !== me);
+    return other ? (profileMap[other.user_id] ?? null) : null;
+  }
+
   function conversationLabel(c: Conversation) {
     if (c.title) return c.title;
-    const other = members.find((m) => m.conversation_id === c.id && m.user_id !== me);
-    return other ? (profileMap[other.user_id]?.full_name ?? "Conversa") : "Conversa";
+    return otherMember(c)?.full_name ?? "Conversa";
   }
 
   function conversationAvatar(c: Conversation) {
-    const other = members.find((m) => m.conversation_id === c.id && m.user_id !== me);
-    return other ? avatarSrc(profileMap[other.user_id]?.avatar_url, signed) : undefined;
+    if (c.is_group) return avatarSrc(c.avatar_path, signed);
+    return avatarSrc(otherMember(c)?.avatar_url, signed);
   }
 
   function isMuted(conversationId: string) {
     const m = members.find((x) => x.conversation_id === conversationId && x.user_id === me);
     return !!m?.muted_until && new Date(m.muted_until) > new Date();
   }
+
+  function conversationMembers(conversationId: string) {
+    return members.filter((m) => m.conversation_id === conversationId);
+  }
+
+  function isGroupAdmin(conversationId: string) {
+    return !!members.find(
+      (m) => m.conversation_id === conversationId && m.user_id === me && m.is_admin,
+    );
+  }
+
+  function hasUnread(c: Conversation) {
+    const mine = members.find((m) => m.conversation_id === c.id && m.user_id === me);
+    const last = lastMessages[c.id];
+    if (!mine || !last || last.sender_id === me) return false;
+    return new Date(last.created_at) > new Date(mine.last_read_at);
+  }
+
+  function lastMessageTime(c: Conversation) {
+    const last = lastMessages[c.id];
+    const iso = last?.created_at ?? c.updated_at;
+    const date = new Date(iso);
+    const today = new Date();
+    const sameDay = date.toDateString() === today.toDateString();
+    return sameDay
+      ? date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+      : date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  }
+
+  /** Uma mensagem minha é considerada lida quando todos os outros participantes já abriram a conversa depois dela. */
+  function isMessageRead(m: Message) {
+    const others = conversationMembers(m.conversation_id).filter((x) => x.user_id !== me);
+    if (others.length === 0) return false;
+    return others.every((x) => new Date(x.last_read_at) >= new Date(m.created_at));
+  }
+
+  async function togglePin(conversationId: string, pinned: boolean) {
+    if (!me) return;
+    const { error } = await supabase
+      .from("conversation_members")
+      .update({ pinned })
+      .eq("conversation_id", conversationId)
+      .eq("user_id", me);
+    if (error) {
+      toast.error("Não foi possível fixar a conversa.");
+      return;
+    }
+    await loadConversations();
+  }
+
+  /** Some com a conversa apenas para o usuário; o painel do ADM continua com o histórico. */
+  async function hideConversation(conversationId: string) {
+    if (!me) return;
+    const { error } = await supabase
+      .from("conversation_members")
+      .update({ hidden_at: new Date().toISOString() })
+      .eq("conversation_id", conversationId)
+      .eq("user_id", me);
+    if (error) {
+      toast.error("Não foi possível excluir a conversa da sua lista.");
+      return;
+    }
+    if (activeId === conversationId) setActiveId(null);
+    await loadConversations();
+    toast.success("Conversa removida da sua lista.");
+  }
+
+  const visibleConversations = useMemo(() => {
+    const list = conversations.filter((c) => {
+      const mine = members.find((m) => m.conversation_id === c.id && m.user_id === me);
+      if (!mine) return false;
+      if (!mine.hidden_at) return true;
+      const last = lastMessages[c.id];
+      // Uma mensagem nova depois da exclusão traz a conversa de volta.
+      return !!last && new Date(last.created_at) > new Date(mine.hidden_at);
+    });
+    const time = (c: Conversation) =>
+      new Date(lastMessages[c.id]?.created_at ?? c.updated_at).getTime();
+    const pinnedOf = (c: Conversation) =>
+      members.find((m) => m.conversation_id === c.id && m.user_id === me)?.pinned ?? false;
+    return list.sort((a, b) => {
+      const pa = pinnedOf(a) ? 1 : 0;
+      const pb = pinnedOf(b) ? 1 : 0;
+      if (pa !== pb) return pb - pa;
+      return time(b) - time(a);
+    });
+  }, [conversations, members, lastMessages, me]);
 
   /** Procura uma conversa direta já existente entre mim e o outro usuário. */
   function findDirect(otherId: string, convs: Conversation[], mems: Member[]) {
@@ -411,7 +572,11 @@ function ConversationsPage() {
     }
     const rows = [
       { conversation_id: convId, user_id: me, is_admin: true },
-      ...picked.map((uid) => ({ conversation_id: convId, user_id: uid, is_admin: false })),
+      ...picked.map((uid) => ({
+        conversation_id: convId,
+        user_id: uid,
+        is_admin: isGroup && groupAdmins.includes(uid),
+      })),
     ];
     const { error: memErr } = await supabase.from("conversation_members").insert(rows);
     if (memErr) {
@@ -419,11 +584,89 @@ function ConversationsPage() {
       toast.error("Não foi possível adicionar os participantes.");
       return;
     }
+
+    if (isGroup && groupPhoto) {
+      const path = `${me}/grupo-${convId}-${Date.now()}.jpg`;
+      const { error: upErr } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(path, groupPhoto, { contentType: groupPhoto.type || "image/jpeg", upsert: true });
+      if (!upErr) {
+        await supabase.from("conversations").update({ avatar_path: path }).eq("id", convId);
+      }
+    }
+
     setDialogOpen(false);
     setPicked([]);
     setGroupName("");
+    setGroupPhoto(null);
+    setGroupAdmins([]);
     await loadConversations();
     setActiveId(convId);
+  }
+
+  async function updateMemberFlags(
+    conversationId: string,
+    userId: string,
+    patch: { is_admin?: boolean; can_send?: boolean },
+  ) {
+    const { error } = await supabase
+      .from("conversation_members")
+      .update(patch)
+      .eq("conversation_id", conversationId)
+      .eq("user_id", userId);
+    if (error) {
+      toast.error("Não foi possível atualizar o participante.");
+      return;
+    }
+    await loadConversations();
+  }
+
+  async function removeMember(conversationId: string, userId: string) {
+    const { error } = await supabase
+      .from("conversation_members")
+      .delete()
+      .eq("conversation_id", conversationId)
+      .eq("user_id", userId);
+    if (error) {
+      toast.error("Não foi possível remover o participante.");
+      return;
+    }
+    await loadConversations();
+    toast.success("Participante removido do grupo.");
+  }
+
+  async function setOnlyAdminsSend(conversationId: string, value: boolean) {
+    const { error } = await supabase
+      .from("conversations")
+      .update({ only_admins_send: value })
+      .eq("id", conversationId);
+    if (error) {
+      toast.error("Não foi possível salvar a configuração do grupo.");
+      return;
+    }
+    await loadConversations();
+  }
+
+  async function uploadGroupAvatar(conversationId: string, file: File) {
+    if (!me) return;
+    const path = `${me}/grupo-${conversationId}-${Date.now()}.jpg`;
+    const { error: upErr } = await supabase.storage
+      .from(AVATAR_BUCKET)
+      .upload(path, file, { contentType: file.type || "image/jpeg", upsert: true });
+    if (upErr) {
+      toast.error("Não foi possível enviar a imagem do grupo.");
+      return;
+    }
+    const { error } = await supabase
+      .from("conversations")
+      .update({ avatar_path: path })
+      .eq("id", conversationId);
+    if (error) {
+      toast.error("Não foi possível salvar a foto do grupo.");
+      return;
+    }
+    await loadConversations();
+    toast.success("Foto do grupo atualizada.");
   }
 
   async function send(e: React.FormEvent) {
@@ -602,11 +845,79 @@ function ConversationsPage() {
                 onChange={(e) => setSearch(e.target.value)}
               />
               {picked.length > 1 && (
-                <Input
-                  placeholder="Nome do grupo"
-                  value={groupName}
-                  onChange={(e) => setGroupName(e.target.value)}
-                />
+                <div className="space-y-3 rounded-md border border-border p-3">
+                  <Input
+                    placeholder="Nome do grupo"
+                    value={groupName}
+                    onChange={(e) => setGroupName(e.target.value)}
+                  />
+                  <div className="flex items-center gap-3">
+                    <Avatar className="size-12">
+                      <AvatarImage
+                        src={groupPhoto ? URL.createObjectURL(groupPhoto) : undefined}
+                        alt=""
+                      />
+                      <AvatarFallback>
+                        <Users className="size-5" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => groupPhotoRef.current?.click()}
+                    >
+                      <ImageIcon className="size-4" /> Foto do grupo
+                    </Button>
+                    {groupPhoto && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setGroupPhoto(null)}
+                      >
+                        Remover
+                      </Button>
+                    )}
+                    <input
+                      ref={groupPhotoRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!file) return;
+                        if (file.size > 8 * 1024 * 1024) {
+                          toast.error("A imagem deve ter no máximo 8 MB.");
+                          return;
+                        }
+                        setGroupPhoto(file);
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Administradores do grupo</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {picked.map((id) => (
+                        <label
+                          key={id}
+                          className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-2 py-1 text-xs"
+                        >
+                          <Checkbox
+                            checked={groupAdmins.includes(id)}
+                            onCheckedChange={(v) =>
+                              setGroupAdmins((prev) =>
+                                v ? [...prev, id] : prev.filter((x) => x !== id),
+                              )
+                            }
+                          />
+                          {profileMap[id]?.full_name ?? "Usuário"}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               )}
               <ScrollArea className="max-h-64 pr-3">
                 <div className="space-y-1">
@@ -654,26 +965,106 @@ function ConversationsPage() {
 
         <ScrollArea className="flex-1">
           <nav className="space-y-1 px-2 pb-4">
-            {conversations.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setActiveId(c.id)}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-accent",
-                  c.id === activeId && "bg-accent font-medium",
-                )}
-              >
-                <Avatar className="size-8">
-                  <AvatarImage src={conversationAvatar(c)} alt="" />
-                  <AvatarFallback className="text-xs">
-                    {c.is_group ? <Users className="size-4" /> : initials(conversationLabel(c))}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="min-w-0 flex-1 truncate">{conversationLabel(c)}</span>
-                {isMuted(c.id) && <BellOff className="size-3.5 shrink-0 text-muted-foreground" />}
-              </button>
-            ))}
-            {conversations.length === 0 && (
+            {visibleConversations.map((c) => {
+              const mine = members.find((m) => m.conversation_id === c.id && m.user_id === me);
+              const unread = hasUnread(c);
+              const other = c.is_group ? null : otherMember(c);
+              return (
+                <div
+                  key={c.id}
+                  className={cn(
+                    "group flex items-center gap-2 rounded-md px-2 py-2 transition-colors hover:bg-accent",
+                    c.id === activeId && "bg-accent",
+                  )}
+                >
+                  <button
+                    onClick={() => setActiveId(c.id)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left text-sm"
+                  >
+                    <span className="relative shrink-0">
+                      <Avatar className="size-9">
+                        <AvatarImage src={conversationAvatar(c)} alt="" />
+                        <AvatarFallback className="text-xs">
+                          {c.is_group ? (
+                            <Users className="size-4" />
+                          ) : (
+                            initials(conversationLabel(c))
+                          )}
+                        </AvatarFallback>
+                      </Avatar>
+                      {other && (
+                        <span
+                          title={statusMeta(other.status).label}
+                          className={cn(
+                            "absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-background",
+                            statusMeta(other.status).color,
+                          )}
+                        />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1.5">
+                        {mine?.pinned && <Pin className="size-3 shrink-0 text-muted-foreground" />}
+                        <span
+                          className={cn("min-w-0 flex-1 truncate", unread && "font-bold")}
+                        >
+                          {conversationLabel(c)}
+                        </span>
+                        {unread && <span className="size-2 shrink-0 rounded-full bg-orange-500" />}
+                        <span className="shrink-0 text-[11px] text-muted-foreground">
+                          {lastMessageTime(c)}
+                        </span>
+                      </span>
+                      <span className="mt-0.5 flex items-center gap-1">
+                        <span
+                          className={cn(
+                            "min-w-0 flex-1 truncate text-xs",
+                            unread ? "font-semibold text-foreground" : "text-muted-foreground",
+                          )}
+                        >
+                          {other?.sector || lastMessages[c.id]?.preview || "Sem mensagens"}
+                        </span>
+                        {isMuted(c.id) && (
+                          <BellOff className="size-3 shrink-0 text-muted-foreground" />
+                        )}
+                      </span>
+                    </span>
+                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 shrink-0 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+                      >
+                        <MoreVertical className="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => togglePin(c.id, !mine?.pinned)}>
+                        {mine?.pinned ? (
+                          <>
+                            <PinOff className="size-4" /> Desafixar
+                          </>
+                        ) : (
+                          <>
+                            <Pin className="size-4" /> Fixar no topo
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => hideConversation(c.id)}
+                      >
+                        <Trash2 className="size-4" /> Excluir da minha lista
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              );
+            })}
+            {visibleConversations.length === 0 && (
               <p className="px-3 py-6 text-sm text-muted-foreground">
                 Você ainda não tem conversas.
               </p>
@@ -685,16 +1076,175 @@ function ConversationsPage() {
       <main className="flex min-w-0 flex-1 flex-col">
         {active ? (
           <>
-            <header className="flex items-center gap-3 border-b border-border px-6 py-4">
+            <header className="flex flex-wrap items-center gap-3 border-b border-border px-6 py-4">
+              <Avatar className="size-10">
+                <AvatarImage src={conversationAvatar(active)} alt="" />
+                <AvatarFallback className="text-xs">
+                  {active.is_group ? (
+                    <Users className="size-4" />
+                  ) : (
+                    initials(conversationLabel(active))
+                  )}
+                </AvatarFallback>
+              </Avatar>
+
               <div className="min-w-0 flex-1">
-                <h1 className="truncate text-base font-semibold tracking-tight">
-                  {conversationLabel(active)}
-                </h1>
-                <p className="text-xs text-muted-foreground">
-                  {members.filter((m) => m.conversation_id === active.id).length} participante(s)
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="flex max-w-full items-center gap-1 text-left">
+                    <h1 className="truncate text-base font-semibold tracking-tight">
+                      {conversationLabel(active)}
+                    </h1>
+                    <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-72">
+                    <DropdownMenuLabel>Participantes</DropdownMenuLabel>
+                    {conversationMembers(active.id).map((m) => {
+                      const p = profileMap[m.user_id];
+                      return (
+                        <div
+                          key={m.user_id}
+                          className="flex items-center gap-2 px-2 py-1.5 text-sm"
+                        >
+                          <Avatar className="size-6">
+                            <AvatarImage src={avatarSrc(p?.avatar_url, signed)} alt="" />
+                            <AvatarFallback className="text-[10px]">
+                              {initials(p?.full_name ?? "?")}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="min-w-0 flex-1 truncate">
+                            {p?.full_name ?? "Usuário"}
+                            {m.is_admin && (
+                              <Shield className="ml-1 inline size-3 text-muted-foreground" />
+                            )}
+                          </span>
+                          {active.is_group && isGroupAdmin(active.id) && m.user_id !== me && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-6"
+                              aria-label="Remover do grupo"
+                              onClick={() => removeMember(active.id, m.user_id)}
+                            >
+                              <UserMinus className="size-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  {active.is_group
+                    ? `${conversationMembers(active.id).length} participante(s)`
+                    : (otherMember(active)?.sector ??
+                      otherMember(active)?.description ??
+                      "Conversa direta")}
                   {isMuted(active.id) ? " · silenciada" : ""}
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 font-mono text-[10px] hover:bg-accent"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(active.id);
+                      toast.success("ID da conversa copiado.");
+                    }}
+                  >
+                    <Copy className="size-3" /> {active.id}
+                  </button>
                 </p>
               </div>
+
+              {active.is_group && isGroupAdmin(active.id) && (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => setGroupOpen(true)}>
+                    <Settings className="size-4" /> Grupo
+                  </Button>
+                  <Dialog open={groupOpen} onOpenChange={setGroupOpen}>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Configurações do grupo</DialogTitle>
+                        <DialogDescription>
+                          Defina a foto, os administradores e quem pode enviar mensagens.
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      <div className="flex items-center gap-3">
+                        <Avatar className="size-14">
+                          <AvatarImage src={conversationAvatar(active)} alt="" />
+                          <AvatarFallback>
+                            <Users className="size-5" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => groupPhotoRef.current?.click()}
+                        >
+                          <ImageIcon className="size-4" /> Alterar foto
+                        </Button>
+                        <input
+                          ref={groupPhotoRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = "";
+                            if (file) void uploadGroupAvatar(active.id, file);
+                          }}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between rounded-md border border-border p-3">
+                        <div>
+                          <p className="text-sm font-medium">Somente administradores enviam</p>
+                          <p className="text-xs text-muted-foreground">
+                            Libere pessoas específicas na lista abaixo.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={active.only_admins_send}
+                          onCheckedChange={(v) => setOnlyAdminsSend(active.id, v)}
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        {conversationMembers(active.id).map((m) => (
+                          <div
+                            key={m.user_id}
+                            className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5 text-sm"
+                          >
+                            <span className="min-w-0 flex-1 truncate">
+                              {profileMap[m.user_id]?.full_name ?? "Usuário"}
+                            </span>
+                            <label className="flex items-center gap-1 text-xs">
+                              <Checkbox
+                                checked={m.is_admin}
+                                disabled={m.user_id === me}
+                                onCheckedChange={(v) =>
+                                  updateMemberFlags(active.id, m.user_id, { is_admin: !!v })
+                                }
+                              />
+                              Admin
+                            </label>
+                            <label className="flex items-center gap-1 text-xs">
+                              <Checkbox
+                                checked={m.can_send}
+                                disabled={m.is_admin}
+                                onCheckedChange={(v) =>
+                                  updateMemberFlags(active.id, m.user_id, { can_send: !!v })
+                                }
+                              />
+                              Pode enviar
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </>
+              )}
 
               <Button variant="outline" size="sm" onClick={() => setEventOpen(true)}>
                 <CalendarPlus className="size-4" /> Evento
@@ -805,12 +1355,23 @@ function ConversationsPage() {
                         </AvatarFallback>
                       </Avatar>
                       <div className={cn("max-w-[70%]", mine && "text-right")}>
-                        <p className="text-xs text-muted-foreground">
+                        <p
+                          className={cn(
+                            "flex items-center gap-1 text-xs text-muted-foreground",
+                            mine && "justify-end",
+                          )}
+                        >
                           {profileMap[m.sender_id]?.full_name ?? "Usuário"} ·{" "}
                           {new Date(m.created_at).toLocaleTimeString("pt-BR", {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
+                          {mine &&
+                            (isMessageRead(m) ? (
+                              <CheckCheck className="size-3.5 text-sky-500" />
+                            ) : (
+                              <Check className="size-3.5" />
+                            ))}
                         </p>
                         {m.attachment_path && (
                           <div className="mt-1">
@@ -862,6 +1423,14 @@ function ConversationsPage() {
               </div>
             </ScrollArea>
 
+            {active.is_group &&
+            active.only_admins_send &&
+            !activeMembership?.is_admin &&
+            !activeMembership?.can_send ? (
+              <div className="border-t border-border px-6 py-4 text-center text-sm text-muted-foreground">
+                Apenas administradores podem enviar mensagens neste grupo.
+              </div>
+            ) : (
             <form onSubmit={send} className="border-t border-border px-6 py-4">
               {pendingFile && (
                 <div className="mb-2 flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 text-xs">
@@ -909,6 +1478,7 @@ function ConversationsPage() {
                 </Button>
               </div>
             </form>
+            )}
           </>
         ) : (
           <div className="flex flex-1 items-center justify-center px-6 text-center">
