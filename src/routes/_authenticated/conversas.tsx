@@ -171,6 +171,11 @@ function ConversationsPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [lastMessages, setLastMessages] = useState<Record<string, LastMessage>>({});
+  const [groupOpen, setGroupOpen] = useState(false);
+  const [groupPhoto, setGroupPhoto] = useState<File | null>(null);
+  const [groupAdmins, setGroupAdmins] = useState<string[]>([]);
+  const groupPhotoRef = useRef<HTMLInputElement>(null);
   const [events, setEvents] = useState<ChatEvent[]>([]);
   const [draft, setDraft] = useState("");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
