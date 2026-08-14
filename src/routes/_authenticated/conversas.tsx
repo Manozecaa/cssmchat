@@ -1478,6 +1478,7 @@ function ConversationsPage() {
                 </Button>
               </div>
             </form>
+            )}
           </>
         ) : (
           <div className="flex flex-1 items-center justify-center px-6 text-center">
