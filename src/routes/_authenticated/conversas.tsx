@@ -572,7 +572,11 @@ function ConversationsPage() {
     }
     const rows = [
       { conversation_id: convId, user_id: me, is_admin: true },
-      ...picked.map((uid) => ({ conversation_id: convId, user_id: uid, is_admin: false })),
+      ...picked.map((uid) => ({
+        conversation_id: convId,
+        user_id: uid,
+        is_admin: isGroup && groupAdmins.includes(uid),
+      })),
     ];
     const { error: memErr } = await supabase.from("conversation_members").insert(rows);
     if (memErr) {
@@ -580,11 +584,89 @@ function ConversationsPage() {
       toast.error("Não foi possível adicionar os participantes.");
       return;
     }
+
+    if (isGroup && groupPhoto) {
+      const path = `${me}/grupo-${convId}-${Date.now()}.jpg`;
+      const { error: upErr } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(path, groupPhoto, { contentType: groupPhoto.type || "image/jpeg", upsert: true });
+      if (!upErr) {
+        await supabase.from("conversations").update({ avatar_path: path }).eq("id", convId);
+      }
+    }
+
     setDialogOpen(false);
     setPicked([]);
     setGroupName("");
+    setGroupPhoto(null);
+    setGroupAdmins([]);
     await loadConversations();
     setActiveId(convId);
+  }
+
+  async function updateMemberFlags(
+    conversationId: string,
+    userId: string,
+    patch: { is_admin?: boolean; can_send?: boolean },
+  ) {
+    const { error } = await supabase
+      .from("conversation_members")
+      .update(patch)
+      .eq("conversation_id", conversationId)
+      .eq("user_id", userId);
+    if (error) {
+      toast.error("Não foi possível atualizar o participante.");
+      return;
+    }
+    await loadConversations();
+  }
+
+  async function removeMember(conversationId: string, userId: string) {
+    const { error } = await supabase
+      .from("conversation_members")
+      .delete()
+      .eq("conversation_id", conversationId)
+      .eq("user_id", userId);
+    if (error) {
+      toast.error("Não foi possível remover o participante.");
+      return;
+    }
+    await loadConversations();
+    toast.success("Participante removido do grupo.");
+  }
+
+  async function setOnlyAdminsSend(conversationId: string, value: boolean) {
+    const { error } = await supabase
+      .from("conversations")
+      .update({ only_admins_send: value })
+      .eq("id", conversationId);
+    if (error) {
+      toast.error("Não foi possível salvar a configuração do grupo.");
+      return;
+    }
+    await loadConversations();
+  }
+
+  async function uploadGroupAvatar(conversationId: string, file: File) {
+    if (!me) return;
+    const path = `${me}/grupo-${conversationId}-${Date.now()}.jpg`;
+    const { error: upErr } = await supabase.storage
+      .from(AVATAR_BUCKET)
+      .upload(path, file, { contentType: file.type || "image/jpeg", upsert: true });
+    if (upErr) {
+      toast.error("Não foi possível enviar a imagem do grupo.");
+      return;
+    }
+    const { error } = await supabase
+      .from("conversations")
+      .update({ avatar_path: path })
+      .eq("id", conversationId);
+    if (error) {
+      toast.error("Não foi possível salvar a foto do grupo.");
+      return;
+    }
+    await loadConversations();
+    toast.success("Foto do grupo atualizada.");
   }
 
   async function send(e: React.FormEvent) {
