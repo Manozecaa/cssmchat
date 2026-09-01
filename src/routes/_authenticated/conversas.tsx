@@ -174,6 +174,8 @@ function ConversationsPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [lastMessages, setLastMessages] = useState<Record<string, LastMessage>>({});
+  const [readAt, setReadAt] = useState<Record<string, string>>({});
+
   const [groupOpen, setGroupOpen] = useState(false);
   const [groupPhoto, setGroupPhoto] = useState<File | null>(null);
   const [groupAdmins, setGroupAdmins] = useState<string[]>([]);
