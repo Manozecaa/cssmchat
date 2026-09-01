@@ -442,8 +442,15 @@ function ConversationsPage() {
     const mine = members.find((m) => m.conversation_id === c.id && m.user_id === me);
     const last = lastMessages[c.id];
     if (!mine || !last || last.sender_id === me) return false;
-    return new Date(last.created_at) > new Date(mine.last_read_at);
+    if (c.id === activeId) return false;
+    const local = readAt[c.id];
+    const seenAt = Math.max(
+      new Date(mine.last_read_at).getTime(),
+      local ? new Date(local).getTime() : 0,
+    );
+    return new Date(last.created_at).getTime() > seenAt;
   }
+
 
   function lastMessageTime(c: Conversation) {
     const last = lastMessages[c.id];
