@@ -1005,7 +1005,7 @@ function ConversationsPage() {
                       )}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-1.5">
+                      <span className="flex w-full min-w-0 items-center gap-1.5">
                         {mine?.pinned && <Pin className="size-3 shrink-0 text-muted-foreground" />}
                         <span
                           className={cn("min-w-0 flex-1 truncate", unread && "font-bold")}
@@ -1013,11 +1013,12 @@ function ConversationsPage() {
                           {conversationLabel(c)}
                         </span>
                         {unread && <span className="size-2 shrink-0 rounded-full bg-orange-500" />}
-                        <span className="shrink-0 text-[11px] text-muted-foreground">
+                        <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
                           {lastMessageTime(c)}
                         </span>
                       </span>
-                      <span className="mt-0.5 flex items-center gap-1">
+                      <span className="mt-0.5 flex w-full min-w-0 items-center gap-1">
+
                         <span
                           className={cn(
                             "min-w-0 flex-1 truncate text-xs",
