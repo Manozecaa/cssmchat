@@ -369,7 +369,7 @@ function ConversationsPage() {
       if (typeof document !== "undefined" && document.hidden) return;
       void loadMessages();
       void loadEvents();
-    }, 5000);
+    }, 2000);
 
     return () => {
       cancelled = true;
@@ -378,13 +378,13 @@ function ConversationsPage() {
     };
   }, [activeId]);
 
-  // Atualiza a lista de conversas/participantes a cada 5s
+  // Atualiza a lista de conversas/participantes a cada 2s
   useEffect(() => {
     const tick = () => {
       if (typeof document !== "undefined" && document.hidden) return;
       void loadConversations();
     };
-    const timer = setInterval(tick, 5000);
+    const timer = setInterval(tick, 2000);
     const onVisible = () => tick();
     document.addEventListener("visibilitychange", onVisible);
     return () => {
@@ -392,6 +392,7 @@ function ConversationsPage() {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [loadConversations]);
+
 
 
   useEffect(() => {
