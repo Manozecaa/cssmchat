@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -242,12 +242,14 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          category: string
           created_at: string
           description: string | null
           email: string | null
           full_name: string
           id: string
           is_active: boolean
+          must_change_password: boolean
           sector: string | null
           status: string
           updated_at: string
@@ -255,12 +257,14 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          category?: string
           created_at?: string
           description?: string | null
           email?: string | null
           full_name?: string
           id: string
           is_active?: boolean
+          must_change_password?: boolean
           sector?: string | null
           status?: string
           updated_at?: string
@@ -268,16 +272,42 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          category?: string
           created_at?: string
           description?: string | null
           email?: string | null
           full_name?: string
           id?: string
           is_active?: boolean
+          must_change_password?: boolean
           sector?: string | null
           status?: string
           updated_at?: string
           username?: string
+        }
+        Relationships: []
+      }
+      sectors: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
         }
         Relationships: []
       }

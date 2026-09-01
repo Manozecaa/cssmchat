@@ -116,7 +116,9 @@ type Profile = {
   description: string | null;
   sector: string | null;
   status: string | null;
+  category?: string | null;
 };
+
 type Conversation = {
   id: string;
   title: string | null;
@@ -172,6 +174,8 @@ function ConversationsPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [lastMessages, setLastMessages] = useState<Record<string, LastMessage>>({});
+  const [readAt, setReadAt] = useState<Record<string, string>>({});
+
   const [groupOpen, setGroupOpen] = useState(false);
   const [groupPhoto, setGroupPhoto] = useState<File | null>(null);
   const [groupAdmins, setGroupAdmins] = useState<string[]>([]);
@@ -210,7 +214,7 @@ function ConversationsPage() {
   const loadProfiles = useCallback(async () => {
     const { data: profs } = await supabase
       .from("profiles")
-      .select("id, full_name, username, email, avatar_url, description, sector, status")
+      .select("id, full_name, username, email, avatar_url, description, sector, status, category")
       .order("full_name", { ascending: true });
     setProfiles(profs ?? []);
     const map = await signAvatars((profs ?? []).map((p) => p.avatar_url));
@@ -365,7 +369,7 @@ function ConversationsPage() {
       if (typeof document !== "undefined" && document.hidden) return;
       void loadMessages();
       void loadEvents();
-    }, 5000);
+    }, 2000);
 
     return () => {
       cancelled = true;
@@ -374,13 +378,13 @@ function ConversationsPage() {
     };
   }, [activeId]);
 
-  // Atualiza a lista de conversas/participantes a cada 5s
+  // Atualiza a lista de conversas/participantes a cada 2s
   useEffect(() => {
     const tick = () => {
       if (typeof document !== "undefined" && document.hidden) return;
       void loadConversations();
     };
-    const timer = setInterval(tick, 5000);
+    const timer = setInterval(tick, 2000);
     const onVisible = () => tick();
     document.addEventListener("visibilitychange", onVisible);
     return () => {
@@ -388,6 +392,7 @@ function ConversationsPage() {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [loadConversations]);
+
 
 
   useEffect(() => {
@@ -438,8 +443,15 @@ function ConversationsPage() {
     const mine = members.find((m) => m.conversation_id === c.id && m.user_id === me);
     const last = lastMessages[c.id];
     if (!mine || !last || last.sender_id === me) return false;
-    return new Date(last.created_at) > new Date(mine.last_read_at);
+    if (c.id === activeId) return false;
+    const local = readAt[c.id];
+    const seenAt = Math.max(
+      new Date(mine.last_read_at).getTime(),
+      local ? new Date(local).getTime() : 0,
+    );
+    return new Date(last.created_at).getTime() > seenAt;
   }
+
 
   function lastMessageTime(c: Conversation) {
     const last = lastMessages[c.id];
@@ -511,6 +523,26 @@ function ConversationsPage() {
     });
   }, [conversations, members, lastMessages, me]);
 
+  // Notificações no título da aba do navegador
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const unreadList = visibleConversations.filter((c) => hasUnread(c));
+    if (unreadList.length === 0) {
+      document.title = "Conversas — Nexo";
+      return;
+    }
+    const newest = unreadList.reduce((acc, c) =>
+      new Date(lastMessages[c.id]?.created_at ?? 0) > new Date(lastMessages[acc.id]?.created_at ?? 0)
+        ? c
+        : acc,
+    );
+    const senderId = lastMessages[newest.id]?.sender_id;
+    const senderName = senderId ? (profileMap[senderId]?.full_name ?? "Alguém") : "Alguém";
+    document.title = `(${unreadList.length}) ${senderName} enviou uma mensagem`;
+  }, [visibleConversations, lastMessages, readAt, members, activeId, profileMap]);
+
+
+
   /** Procura uma conversa direta já existente entre mim e o outro usuário. */
   function findDirect(otherId: string, convs: Conversation[], mems: Member[]) {
     return (
@@ -570,14 +602,19 @@ function ConversationsPage() {
       toast.error("Não foi possível criar a conversa.");
       return;
     }
+    // Grupos criados por gestão/diretoria/administração já nascem fixados
+    const leaderCategories = ["gestao", "diretoria", "administrador"];
+    const autoPin = isGroup && leaderCategories.includes(myProfile?.category ?? "comum");
     const rows = [
-      { conversation_id: convId, user_id: me, is_admin: true },
+      { conversation_id: convId, user_id: me, is_admin: true, pinned: autoPin },
       ...picked.map((uid) => ({
         conversation_id: convId,
         user_id: uid,
         is_admin: isGroup && groupAdmins.includes(uid),
+        pinned: autoPin,
       })),
     ];
+
     const { error: memErr } = await supabase.from("conversation_members").insert(rows);
     if (memErr) {
       console.error("addMembers", memErr);
@@ -978,7 +1015,11 @@ function ConversationsPage() {
                   )}
                 >
                   <button
-                    onClick={() => setActiveId(c.id)}
+                    onClick={() => {
+                      setReadAt((prev) => ({ ...prev, [c.id]: new Date().toISOString() }));
+                      setActiveId(c.id);
+                    }}
+
                     className="flex min-w-0 flex-1 items-center gap-3 text-left text-sm"
                   >
                     <span className="relative shrink-0">
@@ -1003,7 +1044,7 @@ function ConversationsPage() {
                       )}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-1.5">
+                      <span className="flex w-full min-w-0 items-center gap-1.5">
                         {mine?.pinned && <Pin className="size-3 shrink-0 text-muted-foreground" />}
                         <span
                           className={cn("min-w-0 flex-1 truncate", unread && "font-bold")}
@@ -1011,18 +1052,19 @@ function ConversationsPage() {
                           {conversationLabel(c)}
                         </span>
                         {unread && <span className="size-2 shrink-0 rounded-full bg-orange-500" />}
-                        <span className="shrink-0 text-[11px] text-muted-foreground">
+                        <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
                           {lastMessageTime(c)}
                         </span>
                       </span>
-                      <span className="mt-0.5 flex items-center gap-1">
+                      <span className="mt-0.5 flex w-full min-w-0 items-center gap-1">
+
                         <span
                           className={cn(
                             "min-w-0 flex-1 truncate text-xs",
                             unread ? "font-semibold text-foreground" : "text-muted-foreground",
                           )}
                         >
-                          {other?.sector || lastMessages[c.id]?.preview || "Sem mensagens"}
+                          {lastMessages[c.id]?.preview || "Sem mensagens"}
                         </span>
                         {isMuted(c.id) && (
                           <BellOff className="size-3 shrink-0 text-muted-foreground" />
@@ -1137,9 +1179,13 @@ function ConversationsPage() {
                 <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   {active.is_group
                     ? `${conversationMembers(active.id).length} participante(s)`
-                    : (otherMember(active)?.sector ??
-                      otherMember(active)?.description ??
-                      "Conversa direta")}
+                    : [
+                        otherMember(active)?.sector ?? otherMember(active)?.description ?? null,
+                        statusMeta(otherMember(active)?.status).label,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+
                   {isMuted(active.id) ? " · silenciada" : ""}
                   <button
                     type="button"
