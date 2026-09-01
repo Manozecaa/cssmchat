@@ -523,6 +523,26 @@ function ConversationsPage() {
     });
   }, [conversations, members, lastMessages, me]);
 
+  // Notificações no título da aba do navegador
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const unreadList = visibleConversations.filter((c) => hasUnread(c));
+    if (unreadList.length === 0) {
+      document.title = "Conversas — Nexo";
+      return;
+    }
+    const newest = unreadList.reduce((acc, c) =>
+      new Date(lastMessages[c.id]?.created_at ?? 0) > new Date(lastMessages[acc.id]?.created_at ?? 0)
+        ? c
+        : acc,
+    );
+    const senderId = lastMessages[newest.id]?.sender_id;
+    const senderName = senderId ? (profileMap[senderId]?.full_name ?? "Alguém") : "Alguém";
+    document.title = `(${unreadList.length}) ${senderName} enviou uma mensagem`;
+  }, [visibleConversations, lastMessages, readAt, members, activeId, profileMap]);
+
+
+
   /** Procura uma conversa direta já existente entre mim e o outro usuário. */
   function findDirect(otherId: string, convs: Conversation[], mems: Member[]) {
     return (
