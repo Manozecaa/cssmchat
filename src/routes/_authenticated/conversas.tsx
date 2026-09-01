@@ -214,7 +214,7 @@ function ConversationsPage() {
   const loadProfiles = useCallback(async () => {
     const { data: profs } = await supabase
       .from("profiles")
-      .select("id, full_name, username, email, avatar_url, description, sector, status")
+      .select("id, full_name, username, email, avatar_url, description, sector, status, category")
       .order("full_name", { ascending: true });
     setProfiles(profs ?? []);
     const map = await signAvatars((profs ?? []).map((p) => p.avatar_url));
