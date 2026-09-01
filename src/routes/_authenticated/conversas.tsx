@@ -980,7 +980,11 @@ function ConversationsPage() {
                   )}
                 >
                   <button
-                    onClick={() => setActiveId(c.id)}
+                    onClick={() => {
+                      setReadAt((prev) => ({ ...prev, [c.id]: new Date().toISOString() }));
+                      setActiveId(c.id);
+                    }}
+
                     className="flex min-w-0 flex-1 items-center gap-3 text-left text-sm"
                   >
                     <span className="relative shrink-0">
