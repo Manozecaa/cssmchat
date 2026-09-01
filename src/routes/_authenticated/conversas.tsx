@@ -116,7 +116,9 @@ type Profile = {
   description: string | null;
   sector: string | null;
   status: string | null;
+  category?: string | null;
 };
+
 type Conversation = {
   id: string;
   title: string | null;
