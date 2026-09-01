@@ -1139,9 +1139,13 @@ function ConversationsPage() {
                 <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   {active.is_group
                     ? `${conversationMembers(active.id).length} participante(s)`
-                    : (otherMember(active)?.sector ??
-                      otherMember(active)?.description ??
-                      "Conversa direta")}
+                    : [
+                        otherMember(active)?.sector ?? otherMember(active)?.description ?? null,
+                        statusMeta(otherMember(active)?.status).label,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+
                   {isMuted(active.id) ? " · silenciada" : ""}
                   <button
                     type="button"
