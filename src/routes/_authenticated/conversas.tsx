@@ -602,14 +602,19 @@ function ConversationsPage() {
       toast.error("Não foi possível criar a conversa.");
       return;
     }
+    // Grupos criados por gestão/diretoria/administração já nascem fixados
+    const leaderCategories = ["gestao", "diretoria", "administrador"];
+    const autoPin = isGroup && leaderCategories.includes(myProfile?.category ?? "comum");
     const rows = [
-      { conversation_id: convId, user_id: me, is_admin: true },
+      { conversation_id: convId, user_id: me, is_admin: true, pinned: autoPin },
       ...picked.map((uid) => ({
         conversation_id: convId,
         user_id: uid,
         is_admin: isGroup && groupAdmins.includes(uid),
+        pinned: autoPin,
       })),
     ];
+
     const { error: memErr } = await supabase.from("conversation_members").insert(rows);
     if (memErr) {
       console.error("addMembers", memErr);
