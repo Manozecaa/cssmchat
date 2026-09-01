@@ -1024,7 +1024,7 @@ function ConversationsPage() {
                             unread ? "font-semibold text-foreground" : "text-muted-foreground",
                           )}
                         >
-                          {other?.sector || lastMessages[c.id]?.preview || "Sem mensagens"}
+                          {lastMessages[c.id]?.preview || "Sem mensagens"}
                         </span>
                         {isMuted(c.id) && (
                           <BellOff className="size-3 shrink-0 text-muted-foreground" />
