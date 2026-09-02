@@ -220,6 +220,11 @@ function Shell({
   useEffect(() => {
     if (window.matchMedia("(max-width: 767px)").matches) setSidebarOpen(false);
   }, []);
+
+  // Ao navegar no celular, recolhe o menu automaticamente
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 767px)").matches) setSidebarOpen(false);
+  }, [view]);
   const [editing, setEditing] = useState<AppUser | null>(null);
 
   async function refresh() {
