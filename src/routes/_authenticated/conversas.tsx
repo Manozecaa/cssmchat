@@ -1367,7 +1367,7 @@ function ConversationsPage() {
             </header>
 
             {upcoming.length > 0 && (
-              <div className="flex flex-wrap gap-2 border-b border-border bg-muted/40 px-6 py-3">
+              <div className="flex flex-wrap gap-2 border-b border-border bg-muted/40 px-3 py-2 sm:px-6 sm:py-3">
                 {upcoming.map((ev) => (
                   <div
                     key={ev.id}
@@ -1402,7 +1402,7 @@ function ConversationsPage() {
             )}
 
             <ScrollArea className="flex-1">
-              <div className="space-y-4 px-6 py-6">
+              <div className="space-y-4 px-3 py-4 sm:px-6 sm:py-6">
                 {messages.map((m) => {
                   const mine = m.sender_id === me;
                   const url = m.attachment_path ? files[m.attachment_path] : undefined;
