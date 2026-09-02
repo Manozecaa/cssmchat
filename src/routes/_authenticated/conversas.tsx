@@ -1417,7 +1417,7 @@ function ConversationsPage() {
                           {initials(profileMap[m.sender_id]?.full_name)}
                         </AvatarFallback>
                       </Avatar>
-                      <div className={cn("max-w-[70%]", mine && "text-right")}>
+                      <div className={cn("max-w-[85%] sm:max-w-[70%]", mine && "text-right")}>
                         <p
                           className={cn(
                             "flex items-center gap-1 text-xs text-muted-foreground",
@@ -1581,7 +1581,7 @@ function ConversationsPage() {
   );
 }
 
-export function passwordProblem(password: string): string | null {
+function passwordProblem(password: string): string | null {
   if (password.length < 8) return "A senha deve ter mais de 8 caracteres.";
   if (!/\d/.test(password)) return "A senha deve conter ao menos 1 número.";
   if (!/[^A-Za-z0-9\s]/.test(password)) return "A senha deve conter ao menos 1 caractere especial.";
