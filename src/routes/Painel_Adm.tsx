@@ -70,6 +70,8 @@ type AppUser = {
   sector: string | null;
   is_active: boolean;
   created_at: string;
+  must_change_password?: boolean;
+  category?: string;
 };
 
 type AdminAccount = {
@@ -213,6 +215,16 @@ function Shell({
   const [view, setView] = useState<View>("usuarios");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [users, setUsers] = useState<AppUser[]>([]);
+
+  // Em telas pequenas o menu começa recolhido (vira um menu deslizante)
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 767px)").matches) setSidebarOpen(false);
+  }, []);
+
+  // Ao navegar no celular, recolhe o menu automaticamente
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 767px)").matches) setSidebarOpen(false);
+  }, [view]);
   const [editing, setEditing] = useState<AppUser | null>(null);
 
   async function refresh() {
@@ -238,10 +250,17 @@ function Shell({
 
   return (
     <div className="flex min-h-screen bg-muted/40">
+      {sidebarOpen && (
+        <button
+          aria-label="Fechar menu"
+          className="fixed inset-0 z-30 bg-foreground/40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
       <aside
         className={cn(
-          "hidden shrink-0 flex-col bg-admin-sidebar text-admin-sidebar-foreground md:flex",
-          sidebarOpen ? "w-60" : "w-0 overflow-hidden",
+          "fixed inset-y-0 left-0 z-40 flex shrink-0 flex-col overflow-y-auto bg-admin-sidebar text-admin-sidebar-foreground transition-transform md:static md:translate-x-0",
+          sidebarOpen ? "w-60 translate-x-0" : "w-60 -translate-x-full md:w-0 md:overflow-hidden",
         )}
       >
         <div className="px-5 py-4 text-lg font-medium">Painel administrativo</div>
@@ -321,7 +340,7 @@ function Shell({
           </button>
         </header>
 
-        <main className="flex-1 px-6 py-6">
+        <main className="flex-1 px-4 py-4 sm:px-6 sm:py-6">
           <h1 className="mb-5 text-2xl font-light text-admin-heading">{titles[view]}</h1>
 
           {view === "home" && <HomeCards count={users.length} onGo={() => setView("usuarios")} />}
@@ -451,6 +470,7 @@ function UserForm({ editing, onDone }: { editing: AppUser | null; onDone: () => 
   const [sector, setSector] = useState(editing?.sector ?? "");
   const [description, setDescription] = useState(editing?.description ?? "");
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
+  const [mustChange, setMustChange] = useState(editing?.must_change_password ?? !editing);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
@@ -480,10 +500,13 @@ function UserForm({ editing, onDone }: { editing: AppUser | null; onDone: () => 
             sector,
             description,
             isActive,
+            mustChangePassword: mustChange,
             ...(password ? { password } : {}),
           },
         })
-      : await adminCreateUser({ data: { username, password, fullName, sector, description } });
+      : await adminCreateUser({
+          data: { username, password, fullName, sector, description, mustChangePassword: mustChange },
+        });
     setBusy(false);
     if (!res.ok) {
       toast.error(res.message);
@@ -541,7 +564,6 @@ function UserForm({ editing, onDone }: { editing: AppUser | null; onDone: () => 
               id="uf-pass"
               type="password"
               required={!editing}
-              minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -551,10 +573,22 @@ function UserForm({ editing, onDone }: { editing: AppUser | null; onDone: () => 
               id="uf-confirm"
               type="password"
               required={!editing}
-              minLength={6}
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
             />
+          </Field>
+          <Field id="uf-must" label="Troca de senha">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <input
+                id="uf-must"
+                type="checkbox"
+                className="size-4"
+                checked={mustChange}
+                onChange={(e) => setMustChange(e.target.checked)}
+              />
+              Obrigar o usuário a trocar a senha no próximo acesso (mínimo 8 caracteres, 1 número e
+              1 caractere especial).
+            </label>
           </Field>
           {editing && (
             <Field id="uf-active" label="Usuário ativo">

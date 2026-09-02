@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
+  ArrowLeft,
   Bell,
   BellOff,
   CalendarPlus,
@@ -117,6 +118,7 @@ type Profile = {
   sector: string | null;
   status: string | null;
   category?: string | null;
+  must_change_password?: boolean | null;
 };
 
 type Conversation = {
@@ -181,7 +183,7 @@ function ConversationsPage() {
   const [groupAdmins, setGroupAdmins] = useState<string[]>([]);
   const groupPhotoRef = useRef<HTMLInputElement>(null);
   const [events, setEvents] = useState<ChatEvent[]>([]);
-  const [draft, setDraft] = useState("");
+  const draftRef = useRef<HTMLInputElement>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -214,7 +216,7 @@ function ConversationsPage() {
   const loadProfiles = useCallback(async () => {
     const { data: profs } = await supabase
       .from("profiles")
-      .select("id, full_name, username, email, avatar_url, description, sector, status, category")
+      .select("id, full_name, username, email, avatar_url, description, sector, status, category, must_change_password")
       .order("full_name", { ascending: true });
     setProfiles(profs ?? []);
     const map = await signAvatars((profs ?? []).map((p) => p.avatar_url));
@@ -708,7 +710,7 @@ function ConversationsPage() {
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
-    const content = draft.trim();
+    const content = (draftRef.current?.value ?? "").trim();
     if ((!content && !pendingFile) || !activeId || !me || sending) return;
     setSending(true);
 
@@ -753,7 +755,7 @@ function ConversationsPage() {
       toast.error("Mensagem não enviada.");
       return;
     }
-    setDraft("");
+    if (draftRef.current) draftRef.current.value = "";
     setPendingFile(null);
   }
 
@@ -816,8 +818,13 @@ function ConversationsPage() {
   );
 
   return (
-    <div className="flex h-screen bg-background">
-      <aside className="flex w-72 shrink-0 flex-col border-r border-border">
+    <div className="flex h-dvh bg-background">
+      <aside
+        className={cn(
+          "flex w-full shrink-0 flex-col border-r border-border md:flex md:w-72 lg:w-80",
+          active ? "hidden" : "flex",
+        )}
+      >
         <div className="flex items-center justify-between px-4 py-4">
           <span className="text-lg font-semibold tracking-tight">Nexo</span>
           <div className="flex items-center gap-1">
@@ -1115,10 +1122,19 @@ function ConversationsPage() {
         </ScrollArea>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col">
+      <main className={cn("min-w-0 flex-1 flex-col", active ? "flex" : "hidden md:flex")}>
         {active ? (
           <>
-            <header className="flex flex-wrap items-center gap-3 border-b border-border px-6 py-4">
+            <header className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-3 sm:gap-3 sm:px-6 sm:py-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden"
+                aria-label="Voltar para conversas"
+                onClick={() => setActiveId(null)}
+              >
+                <ArrowLeft className="size-5" />
+              </Button>
               <Avatar className="size-10">
                 <AvatarImage src={conversationAvatar(active)} alt="" />
                 <AvatarFallback className="text-xs">
@@ -1195,7 +1211,8 @@ function ConversationsPage() {
                       toast.success("ID da conversa copiado.");
                     }}
                   >
-                    <Copy className="size-3" /> {active.id}
+                    <Copy className="size-3" />
+                    <span className="max-w-[140px] truncate sm:max-w-none">{active.id}</span>
                   </button>
                 </p>
               </div>
@@ -1350,7 +1367,7 @@ function ConversationsPage() {
             </header>
 
             {upcoming.length > 0 && (
-              <div className="flex flex-wrap gap-2 border-b border-border bg-muted/40 px-6 py-3">
+              <div className="flex flex-wrap gap-2 border-b border-border bg-muted/40 px-3 py-2 sm:px-6 sm:py-3">
                 {upcoming.map((ev) => (
                   <div
                     key={ev.id}
@@ -1385,7 +1402,7 @@ function ConversationsPage() {
             )}
 
             <ScrollArea className="flex-1">
-              <div className="space-y-4 px-6 py-6">
+              <div className="space-y-4 px-3 py-4 sm:px-6 sm:py-6">
                 {messages.map((m) => {
                   const mine = m.sender_id === me;
                   const url = m.attachment_path ? files[m.attachment_path] : undefined;
@@ -1400,7 +1417,7 @@ function ConversationsPage() {
                           {initials(profileMap[m.sender_id]?.full_name)}
                         </AvatarFallback>
                       </Avatar>
-                      <div className={cn("max-w-[70%]", mine && "text-right")}>
+                      <div className={cn("max-w-[85%] sm:max-w-[70%]", mine && "text-right")}>
                         <p
                           className={cn(
                             "flex items-center gap-1 text-xs text-muted-foreground",
@@ -1473,11 +1490,11 @@ function ConversationsPage() {
             active.only_admins_send &&
             !activeMembership?.is_admin &&
             !activeMembership?.can_send ? (
-              <div className="border-t border-border px-6 py-4 text-center text-sm text-muted-foreground">
+              <div className="border-t border-border px-4 py-4 text-center text-sm text-muted-foreground sm:px-6">
                 Apenas administradores podem enviar mensagens neste grupo.
               </div>
             ) : (
-            <form onSubmit={send} className="border-t border-border px-6 py-4">
+            <form onSubmit={send} className="border-t border-border px-3 py-3 sm:px-6 sm:py-4">
               {pendingFile && (
                 <div className="mb-2 flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 text-xs">
                   <Paperclip className="size-3.5" />
@@ -1514,10 +1531,14 @@ function ConversationsPage() {
                   }}
                 />
                 <Input
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
+                  ref={draftRef}
+                  defaultValue=""
+                  dir="ltr"
+                  autoComplete="off"
+                  enterKeyHint="send"
                   placeholder="Escreva uma mensagem…"
                   maxLength={4000}
+                  className="min-w-0 flex-1"
                 />
                 <Button type="submit" size="icon" aria-label="Enviar" disabled={sending}>
                   <Send className="size-4" />
@@ -1545,6 +1566,10 @@ function ConversationsPage() {
         />
       )}
 
+      {myProfile?.must_change_password && (
+        <ForcePasswordDialog profileId={myProfile.id} onDone={loadProfiles} />
+      )}
+
       <UserSettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
@@ -1553,6 +1578,99 @@ function ConversationsPage() {
         onSaved={loadProfiles}
       />
     </div>
+  );
+}
+
+function passwordProblem(password: string): string | null {
+  if (password.length < 8) return "A senha deve ter mais de 8 caracteres.";
+  if (!/\d/.test(password)) return "A senha deve conter ao menos 1 número.";
+  if (!/[^A-Za-z0-9\s]/.test(password)) return "A senha deve conter ao menos 1 caractere especial.";
+  return null;
+}
+
+function ForcePasswordDialog({ profileId, onDone }: { profileId: string; onDone: () => Promise<void> }) {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const problem = passwordProblem(password);
+    if (problem) {
+      toast.error(problem);
+      return;
+    }
+    if (password !== confirm) {
+      toast.error("As senhas não conferem.");
+      return;
+    }
+    setBusy(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      setBusy(false);
+      toast.error(
+        /same/i.test(error.message)
+          ? "A nova senha deve ser diferente da atual."
+          : "Não foi possível alterar a senha.",
+      );
+      return;
+    }
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ must_change_password: false })
+      .eq("id", profileId);
+    setBusy(false);
+    if (profileError) {
+      toast.error("Senha alterada, mas não foi possível concluir. Tente novamente.");
+      return;
+    }
+    await onDone();
+    toast.success("Senha definida. Bem-vindo!");
+  }
+
+  return (
+    <Dialog open>
+      <DialogContent
+        className="[&>button]:hidden"
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
+        <DialogHeader>
+          <DialogTitle>Defina uma nova senha</DialogTitle>
+          <DialogDescription>
+            Este é o seu primeiro acesso. Por segurança, crie uma senha com mais de 8 caracteres,
+            ao menos 1 número e 1 caractere especial.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="force-pass">Nova senha</Label>
+            <Input
+              id="force-pass"
+              type="password"
+              autoComplete="new-password"
+              autoFocus
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="force-pass-2">Confirmar nova senha</Label>
+            <Input
+              id="force-pass-2"
+              type="password"
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
+          </div>
+          <Button type="submit" disabled={busy} className="w-full">
+            Salvar nova senha
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1772,8 +1890,9 @@ function UserSettingsDialog({
 
   async function changePassword(e: React.FormEvent) {
     e.preventDefault();
-    if (password.length < 6) {
-      toast.error("A senha deve ter ao menos 6 caracteres.");
+    const problem = passwordProblem(password);
+    if (problem) {
+      toast.error(problem);
       return;
     }
     if (password !== confirm) {

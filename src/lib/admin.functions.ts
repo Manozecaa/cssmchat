@@ -125,7 +125,7 @@ export const adminListUsers = createServerFn({ method: "GET" }).handler(async ()
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin
     .from("profiles")
-    .select("id, email, username, full_name, description, sector, is_active, created_at")
+    .select("id, email, username, full_name, description, sector, is_active, created_at, must_change_password, category")
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return data ?? [];
@@ -139,6 +139,7 @@ export const adminCreateUser = createServerFn({ method: "POST" })
       fullName: string;
       description?: string;
       sector?: string;
+      mustChangePassword?: boolean;
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -150,8 +151,8 @@ export const adminCreateUser = createServerFn({ method: "POST" })
         message: "Usuário inválido: use 3 a 32 caracteres (letras, números, . _ -).",
       };
     }
-    if (data.password.length < 6) {
-      return { ok: false as const, message: "Senha deve ter ao menos 6 caracteres." };
+    if (!data.password) {
+      return { ok: false as const, message: "Informe uma senha." };
     }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -182,6 +183,7 @@ export const adminCreateUser = createServerFn({ method: "POST" })
         .update({
           description: data.description?.trim() || null,
           sector: data.sector?.trim() || null,
+          must_change_password: data.mustChangePassword ?? false,
         })
         .eq("id", created.user.id);
     }
@@ -198,6 +200,7 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
       description?: string;
       sector?: string;
       isActive?: boolean;
+      mustChangePassword?: boolean;
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -205,9 +208,6 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
     const username = data.username.trim().toLowerCase();
     if (!/^[a-z0-9._-]{3,32}$/.test(username)) {
       return { ok: false as const, message: "Usuário inválido: use 3 a 32 caracteres." };
-    }
-    if (data.password && data.password.length < 6) {
-      return { ok: false as const, message: "Senha deve ter ao menos 6 caracteres." };
     }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -238,6 +238,7 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
       description: string | null;
       sector: string | null;
       is_active?: boolean;
+      must_change_password?: boolean;
     } = {
       username,
       full_name: fullName,
@@ -246,6 +247,9 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
       sector: data.sector?.trim() || null,
     };
     if (typeof data.isActive === "boolean") profilePatch.is_active = data.isActive;
+    if (typeof data.mustChangePassword === "boolean") {
+      profilePatch.must_change_password = data.mustChangePassword;
+    }
 
     const { error: profileError } = await supabaseAdmin
       .from("profiles")
