@@ -70,6 +70,8 @@ type AppUser = {
   sector: string | null;
   is_active: boolean;
   created_at: string;
+  must_change_password?: boolean;
+  category?: string;
 };
 
 type AdminAccount = {
@@ -213,6 +215,11 @@ function Shell({
   const [view, setView] = useState<View>("usuarios");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [users, setUsers] = useState<AppUser[]>([]);
+
+  // Em telas pequenas o menu começa recolhido (vira um menu deslizante)
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 767px)").matches) setSidebarOpen(false);
+  }, []);
   const [editing, setEditing] = useState<AppUser | null>(null);
 
   async function refresh() {
