@@ -1764,13 +1764,123 @@ function ConversationsPage() {
   );
 }
 
+function AddGroupMembers({
+  candidates,
+  signed,
+  onAdd,
+}: {
+  candidates: Profile[];
+  signed: Record<string, string>;
+  onAdd: (ids: string[]) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [sel, setSel] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const filtered = candidates.filter((p) => {
+    const s = q.trim().toLowerCase();
+    return (
+      !s ||
+      p.full_name.toLowerCase().includes(s) ||
+      p.username.toLowerCase().includes(s) ||
+      (p.sector ?? "").toLowerCase().includes(s)
+    );
+  });
+
+  if (!open) {
+    return (
+      <Button type="button" variant="secondary" size="sm" onClick={() => setOpen(true)}>
+        <UserPlus className="size-4" /> Adicionar participantes
+      </Button>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-md border border-border p-2">
+      <Input placeholder="Buscar pessoa, usuário ou setor…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <ScrollArea className="max-h-40">
+        <div className="space-y-0.5">
+          {filtered.map((p) => (
+            <label
+              key={p.id}
+              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
+            >
+              <Checkbox
+                checked={sel.includes(p.id)}
+                onCheckedChange={(v) =>
+                  setSel((prev) => (v ? [...prev, p.id] : prev.filter((x) => x !== p.id)))
+                }
+              />
+              <Avatar className="size-6">
+                <AvatarImage src={avatarSrc(p.avatar_url, signed)} alt="" />
+                <AvatarFallback className="text-[10px]">{initials(p.full_name)}</AvatarFallback>
+              </Avatar>
+              <span className="min-w-0 flex-1 truncate">
+                {p.full_name}
+                {p.sector && <span className="text-xs text-muted-foreground"> · {p.sector}</span>}
+              </span>
+            </label>
+          ))}
+          {filtered.length === 0 && (
+            <p className="px-2 py-2 text-xs text-muted-foreground">Ninguém disponível para adicionar.</p>
+          )}
+        </div>
+      </ScrollArea>
+      <div className="flex justify-end gap-2">
+        <Button type="button" size="sm" variant="ghost" onClick={() => { setOpen(false); setSel([]); }}>
+          Cancelar
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          disabled={sel.length === 0 || busy}
+          onClick={async () => {
+            setBusy(true);
+            await onAdd(sel);
+            setBusy(false);
+            setSel([]);
+            setOpen(false);
+          }}
+        >
+          <UserPlus className="size-4" /> Adicionar {sel.length > 0 ? `(${sel.length})` : ""}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+const PASSWORD_RULES: { id: string; label: string; test: (p: string) => boolean }[] = [
+  { id: "len", label: "Pelo menos 8 caracteres", test: (p) => p.length >= 8 },
+  { id: "upper", label: "1 letra maiúscula (A-Z)", test: (p) => /[A-Z]/.test(p) },
+  { id: "lower", label: "1 letra minúscula (a-z)", test: (p) => /[a-z]/.test(p) },
+  { id: "digit", label: "1 número (0-9)", test: (p) => /\d/.test(p) },
+  { id: "special", label: "1 caractere especial (!@#$%…)", test: (p) => /[^A-Za-z0-9\s]/.test(p) },
+];
+
 function passwordProblem(password: string): string | null {
-  if (password.length < 8) return "A senha deve ter pelo menos 8 caracteres.";
-  if (!/[A-Z]/.test(password)) return "A senha deve conter ao menos 1 letra maiúscula.";
-  if (!/[a-z]/.test(password)) return "A senha deve conter ao menos 1 letra minúscula.";
-  if (!/\d/.test(password)) return "A senha deve conter ao menos 1 número.";
-  if (!/[^A-Za-z0-9\s]/.test(password)) return "A senha deve conter ao menos 1 caractere especial.";
-  return null;
+  const failed = PASSWORD_RULES.filter((r) => !r.test(password));
+  if (failed.length === 0) return null;
+  return `A senha não atende: ${failed.map((r) => r.label.toLowerCase()).join("; ")}.`;
+}
+
+/** Checklist visual dos requisitos da senha. */
+function PasswordRules({ password }: { password: string }) {
+  return (
+    <ul className="space-y-0.5 text-xs" aria-live="polite">
+      {PASSWORD_RULES.map((r) => {
+        const ok = r.test(password);
+        return (
+          <li
+            key={r.id}
+            className={cn("flex items-center gap-1.5", ok ? "text-emerald-600" : "text-muted-foreground")}
+          >
+            {ok ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+            {r.label}
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 function ForcePasswordDialog({ profileId, onDone }: { profileId: string; onDone: () => Promise<void> }) {
