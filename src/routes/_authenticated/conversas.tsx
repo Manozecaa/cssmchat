@@ -965,6 +965,15 @@ function ConversationsPage() {
             <Button
               variant="ghost"
               size="icon"
+              onClick={() => navigate({ to: "/agenda" })}
+              aria-label="Minha agenda"
+              title="Minha agenda"
+            >
+              <CalendarDays className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setSettingsOpen(true)}
               aria-label="Configurações do usuário"
             >
