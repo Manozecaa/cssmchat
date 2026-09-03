@@ -2241,15 +2241,19 @@ function NewEventDialog({
   open,
   onOpenChange,
   conversationId,
+  isGroup,
   userId,
   memberIds,
+  profiles,
   onCreated,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   conversationId: string;
+  isGroup: boolean;
   userId: string;
   memberIds: string[];
+  profiles: Profile[];
   onCreated: (ev: ChatEvent) => void;
 }) {
   const [title, setTitle] = useState("");
@@ -2258,6 +2262,32 @@ function NewEventDialog({
   const [time, setTime] = useState("");
   const [duration, setDuration] = useState("30");
   const [busy, setBusy] = useState(false);
+  // Participantes: por padrão todos da conversa; em grupos é possível escolher
+  // pessoas específicas e adicionar contatos de fora do grupo.
+  const [selected, setSelected] = useState<string[]>(() =>
+    Array.from(new Set([userId, ...memberIds])),
+  );
+  const [extraSearch, setExtraSearch] = useState("");
+  const groupMembers = useMemo(
+    () => profiles.filter((p) => memberIds.includes(p.id) && p.id !== userId),
+    [profiles, memberIds, userId],
+  );
+  const outsiders = useMemo(() => {
+    const q = extraSearch.trim().toLowerCase();
+    return profiles.filter(
+      (p) =>
+        !memberIds.includes(p.id) &&
+        p.id !== userId &&
+        (selected.includes(p.id) ||
+          (q.length > 0 &&
+            (p.full_name.toLowerCase().includes(q) || p.username.toLowerCase().includes(q)))),
+    );
+  }, [profiles, memberIds, userId, extraSearch, selected]);
+  const allGroupSelected = groupMembers.every((p) => selected.includes(p.id));
+
+  function toggle(id: string, on: boolean) {
+    setSelected((prev) => (on ? Array.from(new Set([...prev, id])) : prev.filter((x) => x !== id)));
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
