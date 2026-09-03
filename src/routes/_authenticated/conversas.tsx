@@ -424,15 +424,20 @@ function ConversationsPage() {
         if (row.sender_id === meRef.current) return;
         const membership = myMembership(row.conversation_id);
         if (!membership) return;
-        const convMuted = !!membership.muted_until && new Date(membership.muted_until) > new Date();
+        // Menção direta (@usuario / @todos) sempre notifica, mesmo silenciada.
+        const myUsername = meRef.current ? profileMapRef.current[meRef.current]?.username : null;
+        const mentioned = !row.is_system && mentionsUser(row.content ?? "", myUsername);
+        const convMuted =
+          !mentioned && !!membership.muted_until && new Date(membership.muted_until) > new Date();
         const p = prefsRef.current;
-        if (!convMuted && !p.soundMuted) playSound((membership.sound ?? "padrao") as SoundId);
+        if (!convMuted && (!p.soundMuted || mentioned)) playSound((membership.sound ?? "padrao") as SoundId);
 
-        if (!p.popup || convMuted) return;
+        if ((!p.popup && !mentioned) || convMuted) return;
         const isActiveVisible =
           activeIdRef.current === row.conversation_id && document.visibilityState === "visible";
         if (isActiveVisible) return;
-        const sender = profileMapRef.current[row.sender_id]?.full_name ?? "Alguém";
+        const senderName = profileMapRef.current[row.sender_id]?.full_name ?? "Alguém";
+        const sender = mentioned ? `${senderName} mencionou você` : senderName;
         const conv = conversationsRef.current.find((c) => c.id === row.conversation_id);
         const where = conv?.is_group && conv.title ? ` em ${conv.title}` : "";
         const body = row.content || (row.attachment_name ? `📎 ${row.attachment_name}` : "Nova mensagem");
