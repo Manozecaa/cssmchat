@@ -1975,11 +1975,14 @@ function ConversationsPage() {
 
       {active && me && (
         <NewEventDialog
+          key={active.id}
           open={eventOpen}
           onOpenChange={setEventOpen}
           conversationId={active.id}
+          isGroup={active.is_group}
           userId={me}
           memberIds={conversationMembers(active.id).map((m) => m.user_id)}
+          profiles={profiles}
           onCreated={(ev) => setEvents((prev) => [...prev, ev])}
         />
       )}
