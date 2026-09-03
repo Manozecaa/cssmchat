@@ -1425,6 +1425,14 @@ function ConversationsPage() {
                         />
                       </div>
 
+                      <AddGroupMembers
+                        candidates={others.filter(
+                          (p) => !conversationMembers(active.id).some((m) => m.user_id === p.id),
+                        )}
+                        signed={signed}
+                        onAdd={(ids) => addMembers(active.id, ids)}
+                      />
+
                       <div className="space-y-1">
                         {conversationMembers(active.id).map((m) => (
                           <div
