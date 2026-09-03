@@ -796,6 +796,22 @@ function ConversationsPage() {
     await loadConversations();
   }
 
+  /** Administradores do grupo podem incluir novos participantes. */
+  async function addMembers(conversationId: string, userIds: string[]) {
+    if (userIds.length === 0) return;
+    const { error } = await supabase.from("conversation_members").insert(
+      userIds.map((uid) => ({ conversation_id: conversationId, user_id: uid })),
+    );
+    if (error) {
+      toast.error("Não foi possível adicionar os participantes.");
+      return;
+    }
+    await loadConversations();
+    toast.success(
+      userIds.length === 1 ? "Participante adicionado." : `${userIds.length} participantes adicionados.`,
+    );
+  }
+
   async function removeMember(conversationId: string, userId: string) {
     const { error } = await supabase
       .from("conversation_members")
