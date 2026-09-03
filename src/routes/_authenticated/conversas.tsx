@@ -576,6 +576,21 @@ function ConversationsPage() {
     return new Date(last.created_at).getTime() > seenAt;
   }
 
+  function unreadCount(c: Conversation) {
+    const mine = members.find((m) => m.conversation_id === c.id && m.user_id === me);
+    if (!mine || c.id === activeId) return 0;
+    const local = readAt[c.id];
+    const seenAt = Math.max(
+      new Date(mine.last_read_at).getTime(),
+      local ? new Date(local).getTime() : 0,
+    );
+    return messages.filter(
+      (m) =>
+        m.conversation_id === c.id &&
+        m.sender_id !== me &&
+        new Date(m.created_at).getTime() > seenAt,
+    ).length;
+  }
 
   function lastMessageTime(c: Conversation) {
     const last = lastMessages[c.id];
