@@ -188,7 +188,7 @@ function writePrefs(p: NotifPrefs) {
 }
 
 const MESSAGE_COLUMNS =
-  "id, conversation_id, sender_id, content, created_at, attachment_path, attachment_name, attachment_type, attachment_size";
+  "id, conversation_id, sender_id, content, created_at, attachment_path, attachment_name, attachment_type, attachment_size, is_system";
 
 function ConversationsPage() {
   const navigate = useNavigate();
