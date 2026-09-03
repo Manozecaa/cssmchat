@@ -140,6 +140,7 @@ type Member = {
   pinned: boolean;
   hidden_at: string | null;
   last_read_at: string;
+  last_delivered_at: string;
 };
 type Message = {
   id: string;
