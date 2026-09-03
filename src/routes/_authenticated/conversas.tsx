@@ -154,6 +154,7 @@ type Message = {
   attachment_name: string | null;
   attachment_type: string | null;
   attachment_size: number | null;
+  is_system: boolean;
 };
 type LastMessage = { sender_id: string; created_at: string; preview: string };
 type ChatEvent = {
@@ -187,7 +188,7 @@ function writePrefs(p: NotifPrefs) {
 }
 
 const MESSAGE_COLUMNS =
-  "id, conversation_id, sender_id, content, created_at, attachment_path, attachment_name, attachment_type, attachment_size";
+  "id, conversation_id, sender_id, content, created_at, attachment_path, attachment_name, attachment_type, attachment_size, is_system";
 
 function ConversationsPage() {
   const navigate = useNavigate();
@@ -831,6 +832,21 @@ function ConversationsPage() {
     await loadConversations();
   }
 
+  /** Mensagem automática exibida no chat (entrou/saiu do grupo). */
+  async function postSystemMessage(conversationId: string, content: string) {
+    if (!me) return;
+    await supabase.from("messages").insert({
+      conversation_id: conversationId,
+      sender_id: me,
+      content,
+      is_system: true,
+    });
+  }
+
+  function nameOf(userId: string) {
+    return profileMap[userId]?.full_name ?? "Usuário";
+  }
+
   /** Administradores do grupo podem incluir novos participantes. */
   async function addMembers(conversationId: string, userIds: string[]) {
     if (userIds.length === 0) return;
@@ -841,6 +857,11 @@ function ConversationsPage() {
       toast.error("Não foi possível adicionar os participantes.");
       return;
     }
+    const names = userIds.map(nameOf).join(", ");
+    await postSystemMessage(
+      conversationId,
+      `${nameOf(me!)} adicionou ${names} ao grupo`,
+    );
     await loadConversations();
     toast.success(
       userIds.length === 1 ? "Participante adicionado." : `${userIds.length} participantes adicionados.`,
@@ -848,6 +869,13 @@ function ConversationsPage() {
   }
 
   async function removeMember(conversationId: string, userId: string) {
+    // Registra a mensagem antes de remover, enquanto o usuário ainda é membro
+    // (se for o próprio saindo, a inserção precisa acontecer antes da exclusão).
+    const self = userId === me;
+    await postSystemMessage(
+      conversationId,
+      self ? `${nameOf(userId)} saiu do grupo` : `${nameOf(userId)} foi removido do grupo por ${nameOf(me!)}`,
+    );
     const { error } = await supabase
       .from("conversation_members")
       .delete()
@@ -858,7 +886,7 @@ function ConversationsPage() {
       return;
     }
     await loadConversations();
-    toast.success("Participante removido do grupo.");
+    toast.success(self ? "Você saiu do grupo." : "Participante removido do grupo.");
   }
 
   async function setOnlyAdminsSend(conversationId: string, value: boolean) {
@@ -1622,6 +1650,19 @@ function ConversationsPage() {
                 {messages.map((m) => {
                   const mine = m.sender_id === me;
                   const url = m.attachment_path ? files[m.attachment_path] : undefined;
+                  if (m.is_system) {
+                    return (
+                      <div key={m.id} className="flex justify-center">
+                        <span className="rounded-full bg-muted px-3 py-1 text-center text-xs text-muted-foreground">
+                          {m.content} ·{" "}
+                          {new Date(m.created_at).toLocaleTimeString("pt-BR", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                    );
+                  }
                   return (
                     <div key={m.id} className={cn("flex gap-3", mine && "flex-row-reverse")}>
                       <Avatar className="size-8 shrink-0">
