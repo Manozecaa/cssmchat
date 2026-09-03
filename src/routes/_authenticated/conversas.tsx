@@ -252,6 +252,37 @@ function ConversationsPage() {
   const [events, setEvents] = useState<ChatEvent[]>([]);
   const draftRef = useRef<HTMLInputElement>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  // Menções (@usuario): sugestão enquanto digita
+  const [mention, setMention] = useState<{ start: number; query: string } | null>(null);
+  const knownHandles = useMemo(
+    () => new Set(profiles.map((p) => p.username.toLowerCase())),
+    [profiles],
+  );
+
+  function updateMentionState() {
+    const el = draftRef.current;
+    if (!el) return;
+    const caret = el.selectionStart ?? el.value.length;
+    const before = el.value.slice(0, caret);
+    const m = /(^|\s)@([a-z0-9._-]*)$/i.exec(before);
+    if (!m) {
+      setMention(null);
+      return;
+    }
+    setMention({ start: caret - m[2]!.length - 1, query: m[2]!.toLowerCase() });
+  }
+
+  function insertMention(username: string) {
+    const el = draftRef.current;
+    if (!el || !mention) return;
+    const caret = el.selectionStart ?? el.value.length;
+    const next = `${el.value.slice(0, mention.start)}@${username} ${el.value.slice(caret)}`;
+    el.value = next;
+    const pos = mention.start + username.length + 2;
+    el.focus();
+    el.setSelectionRange(pos, pos);
+    setMention(null);
+  }
   const [sending, setSending] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
