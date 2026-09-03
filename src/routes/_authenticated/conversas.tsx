@@ -831,6 +831,21 @@ function ConversationsPage() {
     await loadConversations();
   }
 
+  /** Mensagem automática exibida no chat (entrou/saiu do grupo). */
+  async function postSystemMessage(conversationId: string, content: string) {
+    if (!me) return;
+    await supabase.from("messages").insert({
+      conversation_id: conversationId,
+      sender_id: me,
+      content,
+      is_system: true,
+    });
+  }
+
+  function nameOf(userId: string) {
+    return profileMap[userId]?.full_name ?? "Usuário";
+  }
+
   /** Administradores do grupo podem incluir novos participantes. */
   async function addMembers(conversationId: string, userIds: string[]) {
     if (userIds.length === 0) return;
@@ -841,6 +856,11 @@ function ConversationsPage() {
       toast.error("Não foi possível adicionar os participantes.");
       return;
     }
+    const names = userIds.map(nameOf).join(", ");
+    await postSystemMessage(
+      conversationId,
+      `${nameOf(me!)} adicionou ${names} ao grupo`,
+    );
     await loadConversations();
     toast.success(
       userIds.length === 1 ? "Participante adicionado." : `${userIds.length} participantes adicionados.`,
@@ -848,6 +868,13 @@ function ConversationsPage() {
   }
 
   async function removeMember(conversationId: string, userId: string) {
+    // Registra a mensagem antes de remover, enquanto o usuário ainda é membro
+    // (se for o próprio saindo, a inserção precisa acontecer antes da exclusão).
+    const self = userId === me;
+    await postSystemMessage(
+      conversationId,
+      self ? `${nameOf(userId)} saiu do grupo` : `${nameOf(userId)} foi removido do grupo por ${nameOf(me!)}`,
+    );
     const { error } = await supabase
       .from("conversation_members")
       .delete()
@@ -858,7 +885,7 @@ function ConversationsPage() {
       return;
     }
     await loadConversations();
-    toast.success("Participante removido do grupo.");
+    toast.success(self ? "Você saiu do grupo." : "Participante removido do grupo.");
   }
 
   async function setOnlyAdminsSend(conversationId: string, value: boolean) {
