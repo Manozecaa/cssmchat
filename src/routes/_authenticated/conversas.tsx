@@ -298,6 +298,29 @@ function ConversationsPage() {
     navigate({ to: "/auth", replace: true });
   });
 
+  // Configurações globais definidas no Painel ADM
+  const [appSettings, setAppSettings] = useState({
+    max_attachment_mb: MAX_FILE_MB,
+    allow_user_groups: true,
+  });
+  useEffect(() => {
+    void supabase
+      .from("app_settings")
+      .select("key, value")
+      .in("key", ["max_attachment_mb", "allow_user_groups"])
+      .then(({ data }) => {
+        if (!data) return;
+        setAppSettings((prev) => {
+          const next = { ...prev };
+          for (const row of data) {
+            if (row.key === "max_attachment_mb" && Number(row.value) > 0) next.max_attachment_mb = Number(row.value);
+            if (row.key === "allow_user_groups") next.allow_user_groups = row.value !== false && row.value !== "false";
+          }
+          return next;
+        });
+      });
+  }, []);
+
   // Preferências locais de notificação (pop-up e som global)
   const [prefs, setPrefs] = useState<NotifPrefs>(() => readPrefs());
   const prefsRef = useRef(prefs);
@@ -638,6 +661,10 @@ function ConversationsPage() {
   async function createConversation() {
     if (!me || picked.length === 0) return;
     const isGroup = picked.length > 1;
+    if (isGroup && !appSettings.allow_user_groups && (myProfile?.category ?? "comum") === "comum") {
+      toast.error("A criação de grupos está restrita a Gestão, Diretoria e Administradores.");
+      return;
+    }
 
     // Evita conversas duplicadas: reabre a existente, se houver.
     const fresh = await loadConversations();
@@ -785,8 +812,8 @@ function ConversationsPage() {
     } | null = null;
 
     if (pendingFile) {
-      if (pendingFile.size > MAX_FILE_MB * 1024 * 1024) {
-        toast.error(`O arquivo deve ter no máximo ${MAX_FILE_MB} MB.`);
+      if (pendingFile.size > appSettings.max_attachment_mb * 1024 * 1024) {
+        toast.error(`O arquivo deve ter no máximo ${appSettings.max_attachment_mb} MB.`);
         setSending(false);
         return;
       }
