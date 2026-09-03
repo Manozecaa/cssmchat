@@ -1,0 +1,2 @@
+REVOKE EXECUTE ON FUNCTION public.is_calendar_event_owner(uuid, uuid) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.is_calendar_event_participant(uuid, uuid) FROM PUBLIC, anon, authenticated;

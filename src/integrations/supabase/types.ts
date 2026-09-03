@@ -68,6 +68,68 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_event_participants: {
+        Row: {
+          created_at: string
+          event_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_participants_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_events: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          duration_minutes: number
+          id: string
+          starts_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          starts_at: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          starts_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       conversation_events: {
         Row: {
           conversation_id: string
@@ -116,6 +178,7 @@ export type Database = {
           hidden_at: string | null
           is_admin: boolean
           joined_at: string
+          last_delivered_at: string
           last_read_at: string
           muted_until: string | null
           pinned: boolean
@@ -128,6 +191,7 @@ export type Database = {
           hidden_at?: string | null
           is_admin?: boolean
           joined_at?: string
+          last_delivered_at?: string
           last_read_at?: string
           muted_until?: string | null
           pinned?: boolean
@@ -140,6 +204,7 @@ export type Database = {
           hidden_at?: string | null
           is_admin?: boolean
           joined_at?: string
+          last_delivered_at?: string
           last_read_at?: string
           muted_until?: string | null
           pinned?: boolean
@@ -322,6 +387,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      is_calendar_event_owner: {
+        Args: { _event_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_calendar_event_participant: {
+        Args: { _event_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_conversation_admin: {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean

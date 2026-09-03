@@ -5,7 +5,9 @@ import {
   ArrowLeft,
   Bell,
   BellOff,
+  CalendarDays,
   CalendarPlus,
+  UserPlus,
   Check,
   CheckCheck,
   ChevronDown,
@@ -140,6 +142,7 @@ type Member = {
   pinned: boolean;
   hidden_at: string | null;
   last_read_at: string;
+  last_delivered_at: string;
 };
 type Message = {
   id: string;
@@ -253,7 +256,7 @@ function ConversationsPage() {
       supabase
         .from("conversation_members")
         .select(
-          "conversation_id, user_id, muted_until, sound, is_admin, can_send, pinned, hidden_at, last_read_at",
+          "conversation_id, user_id, muted_until, sound, is_admin, can_send, pinned, hidden_at, last_read_at, last_delivered_at",
         ),
       supabase
         .from("messages")
@@ -276,6 +279,30 @@ function ConversationsPage() {
       }
     }
     setLastMessages(last);
+
+    // Confirmação de recebimento: este cliente acabou de receber as mensagens
+    // mais novas de cada conversa → registra last_delivered_at (2 checks).
+    const uid = meRef.current;
+    if (uid) {
+      const toDeliver = (mems ?? []).filter((m) => {
+        if (m.user_id !== uid) return false;
+        const l = last[m.conversation_id];
+        return !!l && l.sender_id !== uid && new Date(l.created_at) > new Date(m.last_delivered_at);
+      });
+      if (toDeliver.length > 0) {
+        const stamp = new Date(
+          Math.max(Date.now(), ...toDeliver.map((m) => new Date(last[m.conversation_id]!.created_at).getTime())),
+        ).toISOString();
+        void supabase
+          .from("conversation_members")
+          .update({ last_delivered_at: stamp })
+          .eq("user_id", uid)
+          .in(
+            "conversation_id",
+            toDeliver.map((m) => m.conversation_id),
+          );
+      }
+    }
 
     const convAvatars = await signAvatars((convs ?? []).map((c) => c.avatar_path));
     setSigned((prev) => ({ ...prev, ...convAvatars }));
@@ -485,15 +512,26 @@ function ConversationsPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Marca a conversa aberta como lida (recibo de leitura estilo WhatsApp)
+  // Marca a conversa aberta como lida (recibo de leitura estilo WhatsApp).
+  // Usa o horário da última mensagem quando ele for maior que o relógio local,
+  // evitando que a notificação "volte" por diferença de relógio.
   useEffect(() => {
     if (!activeId || !me) return;
+    const newest = messages.length > 0 ? messages[messages.length - 1]!.created_at : null;
+    const stamp = new Date(
+      Math.max(Date.now(), newest ? new Date(newest).getTime() : 0),
+    ).toISOString();
+    setReadAt((prev) =>
+      prev[activeId] && new Date(prev[activeId]!) >= new Date(stamp)
+        ? prev
+        : { ...prev, [activeId]: stamp },
+    );
     void supabase
       .from("conversation_members")
-      .update({ last_read_at: new Date().toISOString() })
+      .update({ last_read_at: stamp, last_delivered_at: stamp })
       .eq("conversation_id", activeId)
       .eq("user_id", me);
-  }, [activeId, me, messages.length]);
+  }, [activeId, me, messages]);
 
   function otherMember(c: Conversation) {
     const other = members.find((m) => m.conversation_id === c.id && m.user_id !== me);
@@ -550,11 +588,19 @@ function ConversationsPage() {
       : date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
   }
 
-  /** Uma mensagem minha é considerada lida quando todos os outros participantes já abriram a conversa depois dela. */
-  function isMessageRead(m: Message) {
+  /**
+   * Status de uma mensagem minha:
+   * - sent: 1 check (gravada no servidor)
+   * - delivered: 2 checks (todos os outros participantes receberam)
+   * - read: 2 checks azuis (todos os outros participantes abriram a conversa depois dela)
+   */
+  function messageStatus(m: Message): "sent" | "delivered" | "read" {
     const others = conversationMembers(m.conversation_id).filter((x) => x.user_id !== me);
-    if (others.length === 0) return false;
-    return others.every((x) => new Date(x.last_read_at) >= new Date(m.created_at));
+    if (others.length === 0) return "sent";
+    const at = new Date(m.created_at).getTime();
+    if (others.every((x) => new Date(x.last_read_at).getTime() >= at)) return "read";
+    if (others.every((x) => new Date(x.last_delivered_at).getTime() >= at)) return "delivered";
+    return "sent";
   }
 
   async function togglePin(conversationId: string, pinned: boolean) {
@@ -750,6 +796,22 @@ function ConversationsPage() {
     await loadConversations();
   }
 
+  /** Administradores do grupo podem incluir novos participantes. */
+  async function addMembers(conversationId: string, userIds: string[]) {
+    if (userIds.length === 0) return;
+    const { error } = await supabase.from("conversation_members").insert(
+      userIds.map((uid) => ({ conversation_id: conversationId, user_id: uid })),
+    );
+    if (error) {
+      toast.error("Não foi possível adicionar os participantes.");
+      return;
+    }
+    await loadConversations();
+    toast.success(
+      userIds.length === 1 ? "Participante adicionado." : `${userIds.length} participantes adicionados.`,
+    );
+  }
+
   async function removeMember(conversationId: string, userId: string) {
     const { error } = await supabase
       .from("conversation_members")
@@ -918,6 +980,15 @@ function ConversationsPage() {
         <div className="flex items-center justify-between px-4 py-4">
           <span className="text-lg font-semibold tracking-tight">Nexo</span>
           <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate({ to: "/agenda" })}
+              aria-label="Minha agenda"
+              title="Minha agenda"
+            >
+              <CalendarDays className="size-4" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -1370,6 +1441,14 @@ function ConversationsPage() {
                         />
                       </div>
 
+                      <AddGroupMembers
+                        candidates={others.filter(
+                          (p) => !conversationMembers(active.id).some((m) => m.user_id === p.id),
+                        )}
+                        signed={signed}
+                        onAdd={(ids) => addMembers(active.id, ids)}
+                      />
+
                       <div className="space-y-1">
                         {conversationMembers(active.id).map((m) => (
                           <div
@@ -1528,11 +1607,14 @@ function ConversationsPage() {
                             minute: "2-digit",
                           })}
                           {mine &&
-                            (isMessageRead(m) ? (
-                              <CheckCheck className="size-3.5 text-sky-500" />
-                            ) : (
-                              <Check className="size-3.5" />
-                            ))}
+                            (() => {
+                              const st = messageStatus(m);
+                              if (st === "read")
+                                return <CheckCheck className="size-3.5 text-sky-500" aria-label="Lida" />;
+                              if (st === "delivered")
+                                return <CheckCheck className="size-3.5" aria-label="Recebida" />;
+                              return <Check className="size-3.5" aria-label="Enviada" />;
+                            })()}
                         </p>
                         {m.attachment_path && (
                           <div className="mt-1">
@@ -1660,6 +1742,7 @@ function ConversationsPage() {
           onOpenChange={setEventOpen}
           conversationId={active.id}
           userId={me}
+          memberIds={conversationMembers(active.id).map((m) => m.user_id)}
           onCreated={(ev) => setEvents((prev) => [...prev, ev])}
         />
       )}
@@ -1681,13 +1764,123 @@ function ConversationsPage() {
   );
 }
 
+function AddGroupMembers({
+  candidates,
+  signed,
+  onAdd,
+}: {
+  candidates: Profile[];
+  signed: Record<string, string>;
+  onAdd: (ids: string[]) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [sel, setSel] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const filtered = candidates.filter((p) => {
+    const s = q.trim().toLowerCase();
+    return (
+      !s ||
+      p.full_name.toLowerCase().includes(s) ||
+      p.username.toLowerCase().includes(s) ||
+      (p.sector ?? "").toLowerCase().includes(s)
+    );
+  });
+
+  if (!open) {
+    return (
+      <Button type="button" variant="secondary" size="sm" onClick={() => setOpen(true)}>
+        <UserPlus className="size-4" /> Adicionar participantes
+      </Button>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-md border border-border p-2">
+      <Input placeholder="Buscar pessoa, usuário ou setor…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <ScrollArea className="max-h-40">
+        <div className="space-y-0.5">
+          {filtered.map((p) => (
+            <label
+              key={p.id}
+              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
+            >
+              <Checkbox
+                checked={sel.includes(p.id)}
+                onCheckedChange={(v) =>
+                  setSel((prev) => (v ? [...prev, p.id] : prev.filter((x) => x !== p.id)))
+                }
+              />
+              <Avatar className="size-6">
+                <AvatarImage src={avatarSrc(p.avatar_url, signed)} alt="" />
+                <AvatarFallback className="text-[10px]">{initials(p.full_name)}</AvatarFallback>
+              </Avatar>
+              <span className="min-w-0 flex-1 truncate">
+                {p.full_name}
+                {p.sector && <span className="text-xs text-muted-foreground"> · {p.sector}</span>}
+              </span>
+            </label>
+          ))}
+          {filtered.length === 0 && (
+            <p className="px-2 py-2 text-xs text-muted-foreground">Ninguém disponível para adicionar.</p>
+          )}
+        </div>
+      </ScrollArea>
+      <div className="flex justify-end gap-2">
+        <Button type="button" size="sm" variant="ghost" onClick={() => { setOpen(false); setSel([]); }}>
+          Cancelar
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          disabled={sel.length === 0 || busy}
+          onClick={async () => {
+            setBusy(true);
+            await onAdd(sel);
+            setBusy(false);
+            setSel([]);
+            setOpen(false);
+          }}
+        >
+          <UserPlus className="size-4" /> Adicionar {sel.length > 0 ? `(${sel.length})` : ""}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+const PASSWORD_RULES: { id: string; label: string; test: (p: string) => boolean }[] = [
+  { id: "len", label: "Pelo menos 8 caracteres", test: (p) => p.length >= 8 },
+  { id: "upper", label: "1 letra maiúscula (A-Z)", test: (p) => /[A-Z]/.test(p) },
+  { id: "lower", label: "1 letra minúscula (a-z)", test: (p) => /[a-z]/.test(p) },
+  { id: "digit", label: "1 número (0-9)", test: (p) => /\d/.test(p) },
+  { id: "special", label: "1 caractere especial (!@#$%…)", test: (p) => /[^A-Za-z0-9\s]/.test(p) },
+];
+
 function passwordProblem(password: string): string | null {
-  if (password.length < 8) return "A senha deve ter pelo menos 8 caracteres.";
-  if (!/[A-Z]/.test(password)) return "A senha deve conter ao menos 1 letra maiúscula.";
-  if (!/[a-z]/.test(password)) return "A senha deve conter ao menos 1 letra minúscula.";
-  if (!/\d/.test(password)) return "A senha deve conter ao menos 1 número.";
-  if (!/[^A-Za-z0-9\s]/.test(password)) return "A senha deve conter ao menos 1 caractere especial.";
-  return null;
+  const failed = PASSWORD_RULES.filter((r) => !r.test(password));
+  if (failed.length === 0) return null;
+  return `A senha não atende: ${failed.map((r) => r.label.toLowerCase()).join("; ")}.`;
+}
+
+/** Checklist visual dos requisitos da senha. */
+function PasswordRules({ password }: { password: string }) {
+  return (
+    <ul className="space-y-0.5 text-xs" aria-live="polite">
+      {PASSWORD_RULES.map((r) => {
+        const ok = r.test(password);
+        return (
+          <li
+            key={r.id}
+            className={cn("flex items-center gap-1.5", ok ? "text-emerald-600" : "text-muted-foreground")}
+          >
+            {ok ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+            {r.label}
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 function ForcePasswordDialog({ profileId, onDone }: { profileId: string; onDone: () => Promise<void> }) {
@@ -1695,25 +1888,31 @@ function ForcePasswordDialog({ profileId, onDone }: { profileId: string; onDone:
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const [error, setError] = useState<string | null>(null);
+  const [touched, setTouched] = useState(false);
+  const mismatch = touched && confirm.length > 0 && password !== confirm;
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    setTouched(true);
     const problem = passwordProblem(password);
     if (problem) {
-      toast.error(problem);
+      setError(problem);
       return;
     }
     if (password !== confirm) {
-      toast.error("As senhas não conferem.");
+      setError("As senhas não coincidem. Digite a mesma senha nos dois campos.");
       return;
     }
+    setError(null);
     setBusy(true);
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) {
+    const { error: authErr } = await supabase.auth.updateUser({ password });
+    if (authErr) {
       setBusy(false);
-      toast.error(
-        /same/i.test(error.message)
-          ? "A nova senha deve ser diferente da atual."
-          : "Não foi possível alterar a senha.",
+      setError(
+        /same/i.test(authErr.message)
+          ? "A nova senha deve ser diferente da senha atual."
+          : `Não foi possível alterar a senha: ${authErr.message}`,
       );
       return;
     }
@@ -1723,7 +1922,7 @@ function ForcePasswordDialog({ profileId, onDone }: { profileId: string; onDone:
       .eq("id", profileId);
     setBusy(false);
     if (profileError) {
-      toast.error("Senha alterada, mas não foi possível concluir. Tente novamente.");
+      setError("Senha alterada, mas não foi possível concluir. Tente novamente.");
       return;
     }
     await onDone();
@@ -1741,11 +1940,10 @@ function ForcePasswordDialog({ profileId, onDone }: { profileId: string; onDone:
         <DialogHeader>
           <DialogTitle>Defina uma nova senha</DialogTitle>
           <DialogDescription>
-            Este é o seu primeiro acesso. Por segurança, crie uma senha com pelo menos 8 caracteres,
-            incluindo 1 letra maiúscula, 1 letra minúscula, 1 número e 1 caractere especial.
+            Este é o seu primeiro acesso. Por segurança, crie uma senha que atenda a todos os requisitos abaixo.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={submit} className="space-y-3">
+        <form onSubmit={submit} className="space-y-3" noValidate>
           <div className="space-y-1.5">
             <Label htmlFor="force-pass">Nova senha</Label>
             <Input
@@ -1754,8 +1952,13 @@ function ForcePasswordDialog({ profileId, onDone }: { profileId: string; onDone:
               autoComplete="new-password"
               autoFocus
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              aria-invalid={touched && !!passwordProblem(password)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError(null);
+              }}
             />
+            <PasswordRules password={password} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="force-pass-2">Confirmar nova senha</Label>
@@ -1764,9 +1967,25 @@ function ForcePasswordDialog({ profileId, onDone }: { profileId: string; onDone:
               type="password"
               autoComplete="new-password"
               value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
+              aria-invalid={mismatch}
+              onChange={(e) => {
+                setConfirm(e.target.value);
+                setTouched(true);
+                setError(null);
+              }}
             />
+            {mismatch && (
+              <p className="text-xs text-destructive">As senhas não coincidem.</p>
+            )}
           </div>
+          {error && (
+            <p
+              role="alert"
+              className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
+              {error}
+            </p>
+          )}
           <Button type="submit" disabled={busy} className="w-full">
             Salvar nova senha
           </Button>
@@ -1781,12 +2000,14 @@ function NewEventDialog({
   onOpenChange,
   conversationId,
   userId,
+  memberIds,
   onCreated,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   conversationId: string;
   userId: string;
+  memberIds: string[];
   onCreated: (ev: ChatEvent) => void;
 }) {
   const [title, setTitle] = useState("");
@@ -1822,6 +2043,23 @@ function NewEventDialog({
         sender_id: userId,
         content: `📅 Evento agendado: ${data.title} — ${starts.toLocaleString("pt-BR")} (${data.duration_minutes} min)`,
       });
+      // Também salva na agenda pessoal de todos os participantes da conversa
+      const calId = crypto.randomUUID();
+      const { error: calErr } = await supabase.from("calendar_events").insert({
+        id: calId,
+        created_by: userId,
+        title: data.title,
+        description: data.description,
+        starts_at: data.starts_at,
+        duration_minutes: data.duration_minutes,
+        conversation_id: conversationId,
+      });
+      if (!calErr) {
+        const ids = Array.from(new Set([userId, ...memberIds]));
+        await supabase
+          .from("calendar_event_participants")
+          .insert(ids.map((uid) => ({ event_id: calId, user_id: uid })));
+      }
       onCreated(data);
     }
     setBusy(false);
