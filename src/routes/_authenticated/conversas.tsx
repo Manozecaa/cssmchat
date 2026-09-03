@@ -200,6 +200,9 @@ function ConversationsPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [lastMessages, setLastMessages] = useState<Record<string, LastMessage>>({});
+  const [recentMessages, setRecentMessages] = useState<
+    { conversation_id: string; sender_id: string; created_at: string }[]
+  >([]);
   const [readAt, setReadAt] = useState<Record<string, string>>({});
 
   const [groupOpen, setGroupOpen] = useState(false);
