@@ -190,6 +190,45 @@ function writePrefs(p: NotifPrefs) {
 const MESSAGE_COLUMNS =
   "id, conversation_id, sender_id, content, created_at, attachment_path, attachment_name, attachment_type, attachment_size, is_system";
 
+const MENTION_RE = /@([a-z0-9._-]+)/gi;
+
+/** Verifica se o texto menciona o usuário (@usuario) ou todos (@todos). */
+function mentionsUser(content: string, username: string | null | undefined) {
+  if (!username) return false;
+  const u = username.toLowerCase();
+  for (const match of content.matchAll(MENTION_RE)) {
+    const handle = match[1]!.toLowerCase();
+    if (handle === u || handle === "todos") return true;
+  }
+  return false;
+}
+
+/** Renderiza o texto destacando as menções @usuario. */
+function renderWithMentions(content: string, known: Set<string>, mine: boolean) {
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  for (const match of content.matchAll(MENTION_RE)) {
+    const handle = match[1]!.toLowerCase();
+    if (!known.has(handle) && handle !== "todos") continue;
+    const start = match.index ?? 0;
+    if (start > last) parts.push(content.slice(last, start));
+    parts.push(
+      <span
+        key={start}
+        className={cn(
+          "rounded px-1 font-semibold",
+          mine ? "bg-primary-foreground/20" : "bg-primary/15 text-primary",
+        )}
+      >
+        {match[0]}
+      </span>,
+    );
+    last = start + match[0].length;
+  }
+  if (last < content.length) parts.push(content.slice(last));
+  return parts.length > 0 ? parts : content;
+}
+
 function ConversationsPage() {
   const navigate = useNavigate();
   const [me, setMe] = useState<string | null>(null);
@@ -213,6 +252,37 @@ function ConversationsPage() {
   const [events, setEvents] = useState<ChatEvent[]>([]);
   const draftRef = useRef<HTMLInputElement>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  // Menções (@usuario): sugestão enquanto digita
+  const [mention, setMention] = useState<{ start: number; query: string } | null>(null);
+  const knownHandles = useMemo(
+    () => new Set(profiles.map((p) => p.username.toLowerCase())),
+    [profiles],
+  );
+
+  function updateMentionState() {
+    const el = draftRef.current;
+    if (!el) return;
+    const caret = el.selectionStart ?? el.value.length;
+    const before = el.value.slice(0, caret);
+    const m = /(^|\s)@([a-z0-9._-]*)$/i.exec(before);
+    if (!m) {
+      setMention(null);
+      return;
+    }
+    setMention({ start: caret - m[2]!.length - 1, query: m[2]!.toLowerCase() });
+  }
+
+  function insertMention(username: string) {
+    const el = draftRef.current;
+    if (!el || !mention) return;
+    const caret = el.selectionStart ?? el.value.length;
+    const next = `${el.value.slice(0, mention.start)}@${username} ${el.value.slice(caret)}`;
+    el.value = next;
+    const pos = mention.start + username.length + 2;
+    el.focus();
+    el.setSelectionRange(pos, pos);
+    setMention(null);
+  }
   const [sending, setSending] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -385,15 +455,20 @@ function ConversationsPage() {
         if (row.sender_id === meRef.current) return;
         const membership = myMembership(row.conversation_id);
         if (!membership) return;
-        const convMuted = !!membership.muted_until && new Date(membership.muted_until) > new Date();
+        // Menção direta (@usuario / @todos) sempre notifica, mesmo silenciada.
+        const myUsername = meRef.current ? profileMapRef.current[meRef.current]?.username : null;
+        const mentioned = !row.is_system && mentionsUser(row.content ?? "", myUsername);
+        const convMuted =
+          !mentioned && !!membership.muted_until && new Date(membership.muted_until) > new Date();
         const p = prefsRef.current;
-        if (!convMuted && !p.soundMuted) playSound((membership.sound ?? "padrao") as SoundId);
+        if (!convMuted && (!p.soundMuted || mentioned)) playSound((membership.sound ?? "padrao") as SoundId);
 
-        if (!p.popup || convMuted) return;
+        if ((!p.popup && !mentioned) || convMuted) return;
         const isActiveVisible =
           activeIdRef.current === row.conversation_id && document.visibilityState === "visible";
         if (isActiveVisible) return;
-        const sender = profileMapRef.current[row.sender_id]?.full_name ?? "Alguém";
+        const senderName = profileMapRef.current[row.sender_id]?.full_name ?? "Alguém";
+        const sender = mentioned ? `${senderName} mencionou você` : senderName;
         const conv = conversationsRef.current.find((c) => c.id === row.conversation_id);
         const where = conv?.is_group && conv.title ? ` em ${conv.title}` : "";
         const body = row.content || (row.attachment_name ? `📎 ${row.attachment_name}` : "Nova mensagem");
@@ -971,6 +1046,7 @@ function ConversationsPage() {
       return;
     }
     if (draftRef.current) draftRef.current.value = "";
+    setMention(null);
     setPendingFile(null);
   }
 
@@ -1735,7 +1811,7 @@ function ConversationsPage() {
                                 : "bg-muted text-foreground",
                             )}
                           >
-                            {m.content}
+                            {renderWithMentions(m.content, knownHandles, mine)}
                           </div>
                         )}
                       </div>
@@ -1770,6 +1846,51 @@ function ConversationsPage() {
                   </button>
                 </div>
               )}
+              {mention && (() => {
+                const memberIds = new Set(conversationMembers(active.id).map((m) => m.user_id));
+                const options = profiles
+                  .filter(
+                    (p) =>
+                      p.id !== me &&
+                      memberIds.has(p.id) &&
+                      (p.username.toLowerCase().includes(mention.query) ||
+                        p.full_name.toLowerCase().includes(mention.query)),
+                  )
+                  .slice(0, 6);
+                const showAll = active.is_group && "todos".startsWith(mention.query);
+                if (options.length === 0 && !showAll) return null;
+                return (
+                  <div className="mb-2 max-h-56 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md">
+                    {showAll && (
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => insertMention("todos")}
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                      >
+                        <span className="font-medium">@todos</span>
+                        <span className="text-xs text-muted-foreground">Notificar todo o grupo</span>
+                      </button>
+                    )}
+                    {options.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => insertMention(p.username)}
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                      >
+                        <Avatar className="size-6">
+                          <AvatarImage src={avatarSrc(p.avatar_url, signed)} alt="" />
+                          <AvatarFallback className="text-[10px]">{initials(p.full_name)}</AvatarFallback>
+                        </Avatar>
+                        <span className="truncate font-medium">{p.full_name}</span>
+                        <span className="truncate text-xs text-muted-foreground">@{p.username}</span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
               <div className="flex gap-2">
                 <Button
                   type="button"
@@ -1796,9 +1917,20 @@ function ConversationsPage() {
                   dir="ltr"
                   autoComplete="off"
                   enterKeyHint="send"
-                  placeholder="Escreva uma mensagem…"
+                  placeholder="Escreva uma mensagem… (@ para marcar alguém)"
                   maxLength={4000}
                   className="min-w-0 flex-1"
+                  onInput={updateMentionState}
+                  onKeyUp={(e) => {
+                    if (e.key === "ArrowLeft" || e.key === "ArrowRight") updateMentionState();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape" && mention) {
+                      e.preventDefault();
+                      setMention(null);
+                    }
+                  }}
+                  onBlur={() => setTimeout(() => setMention(null), 150)}
                 />
                 <Button type="submit" size="icon" aria-label="Enviar" disabled={sending}>
                   <Send className="size-4" />
