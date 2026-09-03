@@ -1839,12 +1839,14 @@ function NewEventDialog({
   onOpenChange,
   conversationId,
   userId,
+  memberIds,
   onCreated,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   conversationId: string;
   userId: string;
+  memberIds: string[];
   onCreated: (ev: ChatEvent) => void;
 }) {
   const [title, setTitle] = useState("");
