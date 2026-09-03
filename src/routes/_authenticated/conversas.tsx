@@ -192,6 +192,20 @@ const MESSAGE_COLUMNS =
 
 const MENTION_RE = /@([a-z0-9._-]+)/gi;
 
+/**
+ * Hierarquia de categorias: cada nível herda todas as permissões dos níveis
+ * abaixo. Administradores têm todas as permissões das demais categorias.
+ */
+const CATEGORY_RANK: Record<string, number> = {
+  comum: 0,
+  gestao: 1,
+  diretoria: 2,
+  administrador: 3,
+};
+function categoryAtLeast(category: string | null | undefined, min: keyof typeof CATEGORY_RANK) {
+  return (CATEGORY_RANK[category ?? "comum"] ?? 0) >= CATEGORY_RANK[min]!;
+}
+
 /** Verifica se o texto menciona o usuário (@usuario) ou todos (@todos). */
 function mentionsUser(content: string, username: string | null | undefined) {
   if (!username) return false;
@@ -818,7 +832,7 @@ function ConversationsPage() {
   async function createConversation() {
     if (!me || picked.length === 0) return;
     const isGroup = picked.length > 1;
-    if (isGroup && !appSettings.allow_user_groups && (myProfile?.category ?? "comum") === "comum") {
+    if (isGroup && !appSettings.allow_user_groups && !categoryAtLeast(myProfile?.category, "gestao")) {
       toast.error("A criação de grupos está restrita a Gestão, Diretoria e Administradores.");
       return;
     }
@@ -852,8 +866,7 @@ function ConversationsPage() {
       return;
     }
     // Grupos criados por gestão/diretoria/administração já nascem fixados
-    const leaderCategories = ["gestao", "diretoria", "administrador"];
-    const autoPin = isGroup && leaderCategories.includes(myProfile?.category ?? "comum");
+    const autoPin = isGroup && categoryAtLeast(myProfile?.category, "gestao");
     const rows = [
       { conversation_id: convId, user_id: me, is_admin: true, pinned: autoPin },
       ...picked.map((uid) => ({
