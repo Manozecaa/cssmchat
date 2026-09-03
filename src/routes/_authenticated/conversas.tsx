@@ -2327,7 +2327,7 @@ function NewEventDialog({
         conversation_id: conversationId,
       });
       if (!calErr) {
-        const ids = Array.from(new Set([userId, ...memberIds]));
+        const ids = Array.from(new Set([userId, ...selected]));
         await supabase
           .from("calendar_event_participants")
           .insert(ids.map((uid) => ({ event_id: calId, user_id: uid })));
@@ -2353,7 +2353,7 @@ function NewEventDialog({
         <DialogHeader>
           <DialogTitle>Novo evento</DialogTitle>
           <DialogDescription>
-            Agende uma reunião com a pessoa ou o grupo desta conversa.
+            Agende uma reunião e escolha quem participa. O evento aparece na agenda de cada participante.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
@@ -2406,6 +2406,61 @@ function NewEventDialog({
               onChange={(e) => setDescription(e.target.value)}
               maxLength={500}
             />
+          </div>
+          <div className="space-y-2">
+            <Label>Participantes</Label>
+            {!isGroup ? (
+              <p className="text-xs text-muted-foreground">
+                Você e{" "}
+                {groupMembers.map((p) => p.full_name).join(", ") || "o outro participante"}{" "}
+                serão adicionados ao evento.
+              </p>
+            ) : (
+              <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border p-2">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <Checkbox
+                    checked={allGroupSelected}
+                    onCheckedChange={(v) =>
+                      setSelected((prev) => {
+                        const ids = groupMembers.map((p) => p.id);
+                        return v
+                          ? Array.from(new Set([...prev, ...ids]))
+                          : prev.filter((x) => !ids.includes(x));
+                      })
+                    }
+                  />
+                  Todos do grupo
+                </label>
+                {groupMembers.map((p) => (
+                  <label key={p.id} className="flex items-center gap-2 pl-5 text-sm">
+                    <Checkbox
+                      checked={selected.includes(p.id)}
+                      onCheckedChange={(v) => toggle(p.id, !!v)}
+                    />
+                    <span className="truncate">{p.full_name}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <Input
+              value={extraSearch}
+              onChange={(e) => setExtraSearch(e.target.value)}
+              placeholder="Adicionar contato de fora da conversa..."
+            />
+            {outsiders.length > 0 && (
+              <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border p-2">
+                {outsiders.map((p) => (
+                  <label key={p.id} className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={selected.includes(p.id)}
+                      onCheckedChange={(v) => toggle(p.id, !!v)}
+                    />
+                    <span className="truncate">{p.full_name}</span>
+                    <span className="truncate text-xs text-muted-foreground">@{p.username}</span>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button type="submit" disabled={busy} className="w-full">
