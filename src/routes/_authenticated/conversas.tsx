@@ -254,7 +254,7 @@ function ConversationsPage() {
       supabase
         .from("conversation_members")
         .select(
-          "conversation_id, user_id, muted_until, sound, is_admin, can_send, pinned, hidden_at, last_read_at",
+          "conversation_id, user_id, muted_until, sound, is_admin, can_send, pinned, hidden_at, last_read_at, last_delivered_at",
         ),
       supabase
         .from("messages")
@@ -277,6 +277,30 @@ function ConversationsPage() {
       }
     }
     setLastMessages(last);
+
+    // Confirmação de recebimento: este cliente acabou de receber as mensagens
+    // mais novas de cada conversa → registra last_delivered_at (2 checks).
+    const uid = meRef.current;
+    if (uid) {
+      const toDeliver = (mems ?? []).filter((m) => {
+        if (m.user_id !== uid) return false;
+        const l = last[m.conversation_id];
+        return !!l && l.sender_id !== uid && new Date(l.created_at) > new Date(m.last_delivered_at);
+      });
+      if (toDeliver.length > 0) {
+        const stamp = new Date(
+          Math.max(Date.now(), ...toDeliver.map((m) => new Date(last[m.conversation_id]!.created_at).getTime())),
+        ).toISOString();
+        void supabase
+          .from("conversation_members")
+          .update({ last_delivered_at: stamp })
+          .eq("user_id", uid)
+          .in(
+            "conversation_id",
+            toDeliver.map((m) => m.conversation_id),
+          );
+      }
+    }
 
     const convAvatars = await signAvatars((convs ?? []).map((c) => c.avatar_path));
     setSigned((prev) => ({ ...prev, ...convAvatars }));
