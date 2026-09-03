@@ -852,8 +852,7 @@ function ConversationsPage() {
       return;
     }
     // Grupos criados por gestão/diretoria/administração já nascem fixados
-    const leaderCategories = ["gestao", "diretoria", "administrador"];
-    const autoPin = isGroup && leaderCategories.includes(myProfile?.category ?? "comum");
+    const autoPin = isGroup && categoryAtLeast(myProfile?.category, "gestao");
     const rows = [
       { conversation_id: convId, user_id: me, is_admin: true, pinned: autoPin },
       ...picked.map((uid) => ({
