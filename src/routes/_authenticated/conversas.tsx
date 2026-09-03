@@ -1622,6 +1622,19 @@ function ConversationsPage() {
                 {messages.map((m) => {
                   const mine = m.sender_id === me;
                   const url = m.attachment_path ? files[m.attachment_path] : undefined;
+                  if (m.is_system) {
+                    return (
+                      <div key={m.id} className="flex justify-center">
+                        <span className="rounded-full bg-muted px-3 py-1 text-center text-xs text-muted-foreground">
+                          {m.content} ·{" "}
+                          {new Date(m.created_at).toLocaleTimeString("pt-BR", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                    );
+                  }
                   return (
                     <div key={m.id} className={cn("flex gap-3", mine && "flex-row-reverse")}>
                       <Avatar className="size-8 shrink-0">
