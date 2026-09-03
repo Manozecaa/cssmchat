@@ -120,12 +120,17 @@ export const adminUpdateCredentials = createServerFn({ method: "POST" })
 
 /* ---------------------------- Usuários do chat ---------------------------- */
 
+export const USER_CATEGORIES = ["comum", "gestao", "diretoria", "administrador"] as const;
+function normalizeCategory(value?: string) {
+  return (USER_CATEGORIES as readonly string[]).includes(value ?? "") ? value! : "comum";
+}
+
 export const adminListUsers = createServerFn({ method: "GET" }).handler(async () => {
   await requireAdmin();
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin
     .from("profiles")
-    .select("id, email, username, full_name, description, sector, is_active, created_at, must_change_password, category")
+    .select("id, email, username, full_name, description, sector, is_active, created_at, must_change_password, category, cpf, birth_date")
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return data ?? [];
@@ -140,6 +145,9 @@ export const adminCreateUser = createServerFn({ method: "POST" })
       description?: string;
       sector?: string;
       mustChangePassword?: boolean;
+      category?: string;
+      cpf?: string;
+      birthDate?: string;
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -184,6 +192,9 @@ export const adminCreateUser = createServerFn({ method: "POST" })
           description: data.description?.trim() || null,
           sector: data.sector?.trim() || null,
           must_change_password: data.mustChangePassword ?? false,
+          category: normalizeCategory(data.category),
+          cpf: data.cpf?.trim() || null,
+          birth_date: data.birthDate || null,
         })
         .eq("id", created.user.id);
     }
@@ -201,6 +212,9 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
       sector?: string;
       isActive?: boolean;
       mustChangePassword?: boolean;
+      category?: string;
+      cpf?: string;
+      birthDate?: string;
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -239,13 +253,19 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
       sector: string | null;
       is_active?: boolean;
       must_change_password?: boolean;
+      category?: string;
+      cpf: string | null;
+      birth_date: string | null;
     } = {
       username,
       full_name: fullName,
       email: `${username}@nexo.local`,
       description: data.description?.trim() || null,
       sector: data.sector?.trim() || null,
+      cpf: data.cpf?.trim() || null,
+      birth_date: data.birthDate || null,
     };
+    if (data.category) profilePatch.category = normalizeCategory(data.category);
     if (typeof data.isActive === "boolean") profilePatch.is_active = data.isActive;
     if (typeof data.mustChangePassword === "boolean") {
       profilePatch.must_change_password = data.mustChangePassword;
@@ -465,4 +485,129 @@ export const adminExportConversation = createServerFn({ method: "POST" })
       filename: `conversa-${conv.id}.txt`,
       content: lines.join("\n"),
     };
+  });
+
+/* -------------------------------- Setores -------------------------------- */
+
+export const adminListSectors = createServerFn({ method: "GET" }).handler(async () => {
+  await requireAdmin();
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const [{ data: sectors, error }, { data: profiles }] = await Promise.all([
+    supabaseAdmin.from("sectors").select("id, name, description, created_at").order("name"),
+    supabaseAdmin.from("profiles").select("sector").eq("is_active", true),
+  ]);
+  if (error) throw new Error(error.message);
+  const counts = new Map<string, number>();
+  for (const p of profiles ?? []) {
+    const key = (p.sector ?? "").trim();
+    if (!key) continue;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return (sectors ?? []).map((s) => ({ ...s, users: counts.get(s.name) ?? 0 }));
+});
+
+export const adminSaveSector = createServerFn({ method: "POST" })
+  .inputValidator((data: { id?: string; name: string; description?: string }) => data)
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const name = data.name.trim();
+    if (name.length < 2 || name.length > 80) {
+      return { ok: false as const, message: "Nome do setor deve ter entre 2 e 80 caracteres." };
+    }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: dup } = await supabaseAdmin.from("sectors").select("id").ilike("name", name).maybeSingle();
+    if (dup && dup.id !== data.id) return { ok: false as const, message: "Já existe um setor com esse nome." };
+
+    const payload = { name, description: data.description?.trim() || null };
+    if (data.id) {
+      const { data: old } = await supabaseAdmin.from("sectors").select("name").eq("id", data.id).maybeSingle();
+      const { error } = await supabaseAdmin.from("sectors").update(payload).eq("id", data.id);
+      if (error) return { ok: false as const, message: error.message };
+      if (old && old.name !== name) {
+        await supabaseAdmin.from("profiles").update({ sector: name }).eq("sector", old.name);
+      }
+      return { ok: true as const, message: "Setor atualizado." };
+    }
+    const { error } = await supabaseAdmin.from("sectors").insert(payload);
+    if (error) return { ok: false as const, message: error.message };
+    return { ok: true as const, message: "Setor criado." };
+  });
+
+export const adminDeleteSector = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string }) => data)
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row } = await supabaseAdmin.from("sectors").select("name").eq("id", data.id).maybeSingle();
+    if (!row) return { ok: false as const, message: "Setor não encontrado." };
+    const { count } = await supabaseAdmin
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("sector", row.name);
+    if ((count ?? 0) > 0) {
+      return { ok: false as const, message: `Há ${count} usuário(s) neste setor. Mova-os antes de excluir.` };
+    }
+    const { error } = await supabaseAdmin.from("sectors").delete().eq("id", data.id);
+    if (error) return { ok: false as const, message: error.message };
+    return { ok: true as const, message: "Setor excluído." };
+  });
+
+/* --------------------------- Configurações globais ------------------------ */
+
+export type GlobalSettings = {
+  session_timeout_minutes: number;
+  max_attachment_mb: number;
+  allow_user_groups: boolean;
+  system_name: string;
+};
+
+const DEFAULT_SETTINGS: GlobalSettings = {
+  session_timeout_minutes: 60,
+  max_attachment_mb: 20,
+  allow_user_groups: true,
+  system_name: "Nexo",
+};
+
+export const adminGetSettings = createServerFn({ method: "GET" }).handler(async () => {
+  await requireAdmin();
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin.from("app_settings").select("key, value");
+  const out: GlobalSettings = { ...DEFAULT_SETTINGS };
+  for (const row of data ?? []) {
+    if (row.key in out) (out as Record<string, unknown>)[row.key] = row.value;
+  }
+  return out;
+});
+
+export const adminSaveSettings = createServerFn({ method: "POST" })
+  .inputValidator((data: Partial<GlobalSettings>) => data)
+  .handler(async ({ data }) => {
+    await requirePrimaryAdmin();
+    const patch: Partial<GlobalSettings> = {};
+    if (data.session_timeout_minutes !== undefined) {
+      const n = Math.round(Number(data.session_timeout_minutes));
+      if (!Number.isFinite(n) || n < 1 || n > 1440) {
+        return { ok: false as const, message: "Tempo de sessão deve ficar entre 1 e 1440 minutos." };
+      }
+      patch.session_timeout_minutes = n;
+    }
+    if (data.max_attachment_mb !== undefined) {
+      const n = Math.round(Number(data.max_attachment_mb));
+      if (!Number.isFinite(n) || n < 1 || n > 200) {
+        return { ok: false as const, message: "Limite de anexo deve ficar entre 1 e 200 MB." };
+      }
+      patch.max_attachment_mb = n;
+    }
+    if (data.allow_user_groups !== undefined) patch.allow_user_groups = !!data.allow_user_groups;
+    if (data.system_name !== undefined) {
+      const name = String(data.system_name).trim().slice(0, 60);
+      if (!name) return { ok: false as const, message: "Informe o nome do sistema." };
+      patch.system_name = name;
+    }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const rows = Object.entries(patch).map(([key, value]) => ({ key, value }));
+    if (rows.length === 0) return { ok: true as const, message: "Nada para salvar." };
+    const { error } = await supabaseAdmin.from("app_settings").upsert(rows, { onConflict: "key" });
+    if (error) return { ok: false as const, message: error.message };
+    return { ok: true as const, message: "Configurações salvas." };
   });
