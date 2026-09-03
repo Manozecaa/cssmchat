@@ -1992,6 +1992,8 @@ function ConversationsPage() {
         profile={myProfile}
         avatarUrl={avatarSrc(myProfile?.avatar_url, signed)}
         onSaved={loadProfiles}
+        canChangeAvatar={allowed("change_avatar")}
+        canChangeStatus={allowed("change_status")}
         prefs={prefs}
         onPrefs={updatePrefs}
       />
@@ -2389,6 +2391,8 @@ function UserSettingsDialog({
   onSaved,
   prefs,
   onPrefs,
+  canChangeAvatar,
+  canChangeStatus,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -2397,6 +2401,8 @@ function UserSettingsDialog({
   onSaved: () => Promise<void>;
   prefs: NotifPrefs;
   onPrefs: (patch: Partial<NotifPrefs>) => void;
+  canChangeAvatar: boolean;
+  canChangeStatus: boolean;
 }) {
   async function togglePopup(on: boolean) {
     if (on && typeof Notification !== "undefined" && Notification.permission === "default") {
@@ -2519,21 +2525,23 @@ function UserSettingsDialog({
                 @{profile?.username}
                 {profile?.sector ? ` · ${profile.sector}` : ""}
               </p>
-              <div className="mt-2 flex gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={busy}
-                  onClick={() => fileRef.current?.click()}
-                >
-                  <Upload className="size-4" /> {profile?.avatar_url ? "Trocar" : "Adicionar"}
-                </Button>
-                {profile?.avatar_url && (
-                  <Button size="sm" variant="outline" disabled={busy} onClick={removeAvatar}>
-                    <Trash2 className="size-4" /> Remover
+              {canChangeAvatar && (
+                <div className="mt-2 flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    <Upload className="size-4" /> {profile?.avatar_url ? "Trocar" : "Adicionar"}
                   </Button>
-                )}
-              </div>
+                  {profile?.avatar_url && (
+                    <Button size="sm" variant="outline" disabled={busy} onClick={removeAvatar}>
+                      <Trash2 className="size-4" /> Remover
+                    </Button>
+                  )}
+                </div>
+              )}
               <input
                 ref={fileRef}
                 type="file"
@@ -2555,7 +2563,11 @@ function UserSettingsDialog({
 
           <div className="space-y-1.5">
             <Label>Status</Label>
-            <Select value={profile?.status ?? "ativo"} onValueChange={changeStatus}>
+            <Select
+              value={profile?.status ?? "ativo"}
+              onValueChange={changeStatus}
+              disabled={!canChangeStatus}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
