@@ -402,7 +402,8 @@ function ConversationsPage() {
           .in(
             "conversation_id",
             toDeliver.map((m) => m.conversation_id),
-          );
+          )
+          .then(() => undefined);
       }
     }
 
@@ -644,7 +645,8 @@ function ConversationsPage() {
       .from("conversation_members")
       .update({ last_read_at: stamp, last_delivered_at: stamp })
       .eq("conversation_id", activeId)
-      .eq("user_id", me);
+      .eq("user_id", me)
+      .then(() => undefined);
   }, [activeId, me, messages, lastMessages]);
 
   function otherMember(c: Conversation) {
@@ -1326,8 +1328,8 @@ function ConversationsPage() {
           </Dialog>
         </div>
 
-        <ScrollArea className="flex-1">
-          <nav className="space-y-1 px-2 pb-4">
+        <ScrollArea className="min-w-0 flex-1 [&_[data-radix-scroll-area-viewport]>div]:!block">
+          <nav className="w-full min-w-0 max-w-full space-y-1 px-2 pb-4">
             {visibleConversations.map((c) => {
               const mine = members.find((m) => m.conversation_id === c.id && m.user_id === me);
               const unread = hasUnread(c);
@@ -1336,7 +1338,7 @@ function ConversationsPage() {
                 <div
                   key={c.id}
                   className={cn(
-                    "group flex items-center gap-2 rounded-md px-2 py-2 transition-colors hover:bg-accent",
+                    "group flex min-w-0 items-center gap-2 overflow-hidden rounded-md px-2 py-2 transition-colors hover:bg-accent",
                     c.id === activeId && "bg-accent",
                   )}
                 >
