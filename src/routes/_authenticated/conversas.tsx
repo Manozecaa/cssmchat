@@ -586,11 +586,19 @@ function ConversationsPage() {
       : date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
   }
 
-  /** Uma mensagem minha é considerada lida quando todos os outros participantes já abriram a conversa depois dela. */
-  function isMessageRead(m: Message) {
+  /**
+   * Status de uma mensagem minha:
+   * - sent: 1 check (gravada no servidor)
+   * - delivered: 2 checks (todos os outros participantes receberam)
+   * - read: 2 checks azuis (todos os outros participantes abriram a conversa depois dela)
+   */
+  function messageStatus(m: Message): "sent" | "delivered" | "read" {
     const others = conversationMembers(m.conversation_id).filter((x) => x.user_id !== me);
-    if (others.length === 0) return false;
-    return others.every((x) => new Date(x.last_read_at) >= new Date(m.created_at));
+    if (others.length === 0) return "sent";
+    const at = new Date(m.created_at).getTime();
+    if (others.every((x) => new Date(x.last_read_at).getTime() >= at)) return "read";
+    if (others.every((x) => new Date(x.last_delivered_at).getTime() >= at)) return "delivered";
+    return "sent";
   }
 
   async function togglePin(conversationId: string, pinned: boolean) {
