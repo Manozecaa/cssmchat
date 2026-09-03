@@ -200,6 +200,9 @@ function ConversationsPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [lastMessages, setLastMessages] = useState<Record<string, LastMessage>>({});
+  const [recentMessages, setRecentMessages] = useState<
+    { conversation_id: string; sender_id: string; created_at: string }[]
+  >([]);
   const [readAt, setReadAt] = useState<Record<string, string>>({});
 
   const [groupOpen, setGroupOpen] = useState(false);
@@ -279,6 +282,13 @@ function ConversationsPage() {
       }
     }
     setLastMessages(last);
+    setRecentMessages(
+      (recent ?? []).map((r) => ({
+        conversation_id: r.conversation_id,
+        sender_id: r.sender_id,
+        created_at: r.created_at,
+      })),
+    );
 
     // Confirmação de recebimento: este cliente acabou de receber as mensagens
     // mais novas de cada conversa → registra last_delivered_at (2 checks).
@@ -517,9 +527,17 @@ function ConversationsPage() {
   // evitando que a notificação "volte" por diferença de relógio.
   useEffect(() => {
     if (!activeId || !me) return;
-    const newest = messages.length > 0 ? messages[messages.length - 1]!.created_at : null;
+    // Só considera mensagens da conversa ativa (o estado pode conter a anterior
+    // por um instante durante a troca de conversa).
+    const own = messages.filter((m) => m.conversation_id === activeId);
+    const newest = own.length > 0 ? own[own.length - 1]!.created_at : null;
+    const lastKnown = lastMessages[activeId]?.created_at ?? null;
     const stamp = new Date(
-      Math.max(Date.now(), newest ? new Date(newest).getTime() : 0),
+      Math.max(
+        Date.now(),
+        newest ? new Date(newest).getTime() : 0,
+        lastKnown ? new Date(lastKnown).getTime() : 0,
+      ),
     ).toISOString();
     setReadAt((prev) =>
       prev[activeId] && new Date(prev[activeId]!) >= new Date(stamp)
@@ -531,7 +549,7 @@ function ConversationsPage() {
       .update({ last_read_at: stamp, last_delivered_at: stamp })
       .eq("conversation_id", activeId)
       .eq("user_id", me);
-  }, [activeId, me, messages]);
+  }, [activeId, me, messages, lastMessages]);
 
   function otherMember(c: Conversation) {
     const other = members.find((m) => m.conversation_id === c.id && m.user_id !== me);
@@ -563,33 +581,35 @@ function ConversationsPage() {
     );
   }
 
-  function hasUnread(c: Conversation) {
+  function seenAtFor(c: Conversation) {
     const mine = members.find((m) => m.conversation_id === c.id && m.user_id === me);
-    const last = lastMessages[c.id];
-    if (!mine || !last || last.sender_id === me) return false;
-    if (c.id === activeId) return false;
+    if (!mine) return null;
     const local = readAt[c.id];
-    const seenAt = Math.max(
+    return Math.max(
       new Date(mine.last_read_at).getTime(),
       local ? new Date(local).getTime() : 0,
     );
+  }
+
+  function hasUnread(c: Conversation) {
+    const last = lastMessages[c.id];
+    if (!last || last.sender_id === me) return false;
+    if (c.id === activeId) return false;
+    const seenAt = seenAtFor(c);
+    if (seenAt === null) return false;
     return new Date(last.created_at).getTime() > seenAt;
   }
 
   function unreadCount(c: Conversation) {
-    const mine = members.find((m) => m.conversation_id === c.id && m.user_id === me);
-    if (!mine || c.id === activeId) return 0;
-    const local = readAt[c.id];
-    const seenAt = Math.max(
-      new Date(mine.last_read_at).getTime(),
-      local ? new Date(local).getTime() : 0,
-    );
-    return messages.filter(
+    if (!hasUnread(c)) return 0;
+    const seenAt = seenAtFor(c)!;
+    const count = recentMessages.filter(
       (m) =>
         m.conversation_id === c.id &&
         m.sender_id !== me &&
         new Date(m.created_at).getTime() > seenAt,
     ).length;
+    return Math.max(count, 1);
   }
 
   function lastMessageTime(c: Conversation) {
