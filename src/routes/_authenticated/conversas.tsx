@@ -1718,6 +1718,7 @@ function ConversationsPage() {
           onOpenChange={setEventOpen}
           conversationId={active.id}
           userId={me}
+          memberIds={conversationMembers(active.id).map((m) => m.user_id)}
           onCreated={(ev) => setEvents((prev) => [...prev, ev])}
         />
       )}
