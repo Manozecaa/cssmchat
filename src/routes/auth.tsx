@@ -12,13 +12,13 @@ const logo = logoAsset.url;
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Acesso à Intranet — Casa de Saúde Santa Maria" },
+      { title: "Acesso ao Intrachat CSSM — Casa de Saúde Santa Maria" },
       {
         name: "description",
         content:
           "Entre com suas credenciais corporativas para acessar o chat interno da Casa de Saúde Santa Maria.",
       },
-      { property: "og:title", content: "Acesso à Intranet — Casa de Saúde Santa Maria" },
+      { property: "og:title", content: "Acesso ao Intrachat CSSM — Casa de Saúde Santa Maria" },
       {
         property: "og:description",
         content: "Acesse o chat corporativo seguro da Casa de Saúde Santa Maria.",
@@ -95,7 +95,7 @@ function AuthPage() {
         </section>
 
         <section className="bg-card px-8 py-10 text-card-foreground md:py-12">
-          <h2 className="text-xl font-bold tracking-tight">Acesso à Intranet</h2>
+          <h2 className="text-xl font-bold tracking-tight">Acesso ao Intrachat CSSM</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Entre com suas credenciais corporativas.
           </p>
