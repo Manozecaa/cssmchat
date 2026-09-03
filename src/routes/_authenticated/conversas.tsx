@@ -1046,6 +1046,7 @@ function ConversationsPage() {
       return;
     }
     if (draftRef.current) draftRef.current.value = "";
+    setMention(null);
     setPendingFile(null);
   }
 
