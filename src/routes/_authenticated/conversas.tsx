@@ -1779,7 +1779,7 @@ function ConversationsPage() {
                                 : "bg-muted text-foreground",
                             )}
                           >
-                            {m.content}
+                            {renderWithMentions(m.content, knownHandles, mine)}
                           </div>
                         )}
                       </div>
