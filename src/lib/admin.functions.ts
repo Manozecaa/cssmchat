@@ -611,3 +611,31 @@ export const adminSaveSettings = createServerFn({ method: "POST" })
     if (error) return { ok: false as const, message: error.message };
     return { ok: true as const, message: "Configurações salvas." };
   });
+
+/* ------------------------ Permissões por categoria ------------------------ */
+
+export const adminGetPermissions = createServerFn({ method: "GET" }).handler(async () => {
+  await requireAdmin();
+  const { normalizePermissions } = await import("@/lib/permissions");
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
+    .from("app_settings")
+    .select("value")
+    .eq("key", "category_permissions")
+    .maybeSingle();
+  return normalizePermissions(data?.value);
+});
+
+export const adminSavePermissions = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => data)
+  .handler(async ({ data }) => {
+    await requirePrimaryAdmin();
+    const { normalizePermissions } = await import("@/lib/permissions");
+    const value = normalizePermissions(data);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("app_settings")
+      .upsert({ key: "category_permissions", value }, { onConflict: "key" });
+    if (error) return { ok: false as const, message: error.message };
+    return { ok: true as const, message: "Permissões salvas." };
+  });

@@ -39,9 +39,18 @@ import {
   adminDeleteSector,
   adminGetSettings,
   adminSaveSettings,
+  adminGetPermissions,
+  adminSavePermissions,
   USER_CATEGORIES,
   type GlobalSettings,
 } from "@/lib/admin.functions";
+import {
+  CATEGORIES,
+  CATEGORY_LABELS,
+  PERMISSION_KEYS,
+  PERMISSION_LABELS,
+  type CategoryPermissions,
+} from "@/lib/permissions";
 import {
   Select,
   SelectContent,
@@ -121,7 +130,7 @@ type AdminConversation = {
 
 type Role = "primary" | "secondary";
 
-type View = "home" | "usuarios" | "cadastro" | "setores" | "configuracoes" | "credenciais" | "admins" | "conversas";
+type View = "home" | "usuarios" | "cadastro" | "setores" | "permissoes" | "configuracoes" | "credenciais" | "admins" | "conversas";
 
 function PainelAdm() {
   const [loading, setLoading] = useState(true);
@@ -332,6 +341,11 @@ function Shell({
             }}
           />
           <SubItem label="Setores" active={view === "setores"} onClick={() => setView("setores")} />
+          <SubItem
+            label="Grupos de usuário"
+            active={view === "permissoes"}
+            onClick={() => setView("permissoes")}
+          />
           <SideItem
             icon={MessagesSquare}
             label="Conversas"
@@ -426,6 +440,8 @@ function Shell({
           {view === "setores" && <SectorsPanel sectors={sectors} onChanged={refresh} />}
 
           {view === "configuracoes" && <SettingsPanel role={role} />}
+
+          {view === "permissoes" && <PermissionsPanel role={role} />}
 
           {view === "usuarios" && (
             <UsersTable
@@ -1684,19 +1700,6 @@ function SettingsPanel({ role }: { role: Role }) {
               onChange={(e) => setSettings({ ...settings, max_attachment_mb: Number(e.target.value) })}
             />
           </Field>
-          <Field id="st-groups" label="Grupos por usuários">
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              <input
-                id="st-groups"
-                type="checkbox"
-                className="size-4"
-                disabled={readOnly}
-                checked={settings.allow_user_groups}
-                onChange={(e) => setSettings({ ...settings, allow_user_groups: e.target.checked })}
-              />
-              Permitir que usuários comuns criem grupos.
-            </label>
-          </Field>
           {!readOnly && (
             <div className="flex justify-center gap-3 border-t border-border pt-5">
               <Button
@@ -1709,6 +1712,104 @@ function SettingsPanel({ role }: { role: Role }) {
             </div>
           )}
         </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PermissionsPanel({ role }: { role: Role }) {
+  const [perms, setPerms] = useState<CategoryPermissions | null>(null);
+  const [busy, setBusy] = useState(false);
+  const readOnly = role !== "primary";
+
+  useEffect(() => {
+    adminGetPermissions()
+      .then((p) => setPerms(p))
+      .catch(() => toast.error("Não foi possível carregar as permissões."));
+  }, []);
+
+  if (!perms) {
+    return <Loader2 className="size-5 animate-spin text-muted-foreground" />;
+  }
+
+  function toggle(cat: (typeof CATEGORIES)[number], key: (typeof PERMISSION_KEYS)[number]) {
+    if (!perms || readOnly || cat === "administrador") return;
+    setPerms({ ...perms, [cat]: { ...perms[cat], [key]: !perms[cat][key] } });
+  }
+
+  async function save() {
+    if (!perms) return;
+    setBusy(true);
+    const res = await adminSavePermissions({ data: perms });
+    setBusy(false);
+    if (!res.ok) {
+      toast.error(res.message);
+      return;
+    }
+    toast.success(res.message);
+  }
+
+  return (
+    <Card>
+      <CardHeader className="border-b border-border">
+        <CardTitle className="text-base font-normal text-admin-heading">
+          Permissões por grupo de usuário
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-6">
+        <p className="mb-4 text-sm text-muted-foreground">
+          Marque o que cada grupo pode fazer no chat. Administradores sempre possuem todas as
+          permissões.
+          {readOnly && " Somente o administrador principal pode alterar."}
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[640px] text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/40 text-left">
+                <th className="px-3 py-2 font-medium text-admin-heading">Permissão</th>
+                {CATEGORIES.map((cat) => (
+                  <th key={cat} className="px-3 py-2 text-center font-medium text-admin-heading">
+                    {CATEGORY_LABELS[cat]}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {PERMISSION_KEYS.map((key) => (
+                <tr key={key} className="border-b border-border/60">
+                  <td className="px-3 py-3">
+                    <div className="font-medium">{PERMISSION_LABELS[key].label}</div>
+                    <div className="text-xs text-muted-foreground">{PERMISSION_LABELS[key].hint}</div>
+                  </td>
+                  {CATEGORIES.map((cat) => (
+                    <td key={cat} className="px-3 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        aria-label={`${PERMISSION_LABELS[key].label} - ${CATEGORY_LABELS[cat]}`}
+                        className="size-4 cursor-pointer disabled:cursor-not-allowed"
+                        checked={cat === "administrador" ? true : perms[cat][key]}
+                        disabled={readOnly || cat === "administrador"}
+                        onChange={() => toggle(cat, key)}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {!readOnly && (
+          <div className="mt-5 flex justify-center border-t border-border pt-5">
+            <Button
+              type="button"
+              disabled={busy}
+              onClick={save}
+              className="bg-admin-success text-white hover:bg-admin-success/90"
+            >
+              Salvar permissões
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
