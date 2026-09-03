@@ -818,7 +818,7 @@ function ConversationsPage() {
   async function createConversation() {
     if (!me || picked.length === 0) return;
     const isGroup = picked.length > 1;
-    if (isGroup && !appSettings.allow_user_groups && (myProfile?.category ?? "comum") === "comum") {
+    if (isGroup && !appSettings.allow_user_groups && !categoryAtLeast(myProfile?.category, "gestao")) {
       toast.error("A criação de grupos está restrita a Gestão, Diretoria e Administradores.");
       return;
     }
