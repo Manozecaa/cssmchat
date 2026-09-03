@@ -79,7 +79,7 @@ function AuthPage() {
             alt="Casa de Saúde Santa Maria"
             width={512}
             height={512}
-            className="size-24 object-contain drop-shadow"
+            className="size-24 object-contain brightness-0 invert drop-shadow"
           />
           <h1 className="mt-6 text-2xl font-bold leading-tight">
             Casa de Saúde
