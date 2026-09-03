@@ -1647,6 +1647,8 @@ function ConversationsPage() {
         profile={myProfile}
         avatarUrl={avatarSrc(myProfile?.avatar_url, signed)}
         onSaved={loadProfiles}
+        prefs={prefs}
+        onPrefs={updatePrefs}
       />
     </div>
   );
@@ -1885,13 +1887,24 @@ function UserSettingsDialog({
   profile,
   avatarUrl,
   onSaved,
+  prefs,
+  onPrefs,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   profile: Profile | null;
   avatarUrl: string | undefined;
   onSaved: () => Promise<void>;
+  prefs: NotifPrefs;
+  onPrefs: (patch: Partial<NotifPrefs>) => void;
 }) {
+  async function togglePopup(on: boolean) {
+    if (on && typeof Notification !== "undefined" && Notification.permission === "default") {
+      const res = await Notification.requestPermission();
+      if (res !== "granted") toast.info("Sem permissão do navegador, o pop-up aparece dentro do chat.");
+    }
+    onPrefs({ popup: on });
+  }
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [password, setPassword] = useState("");
@@ -2064,6 +2077,43 @@ function UserSettingsDialog({
               {profile.description}
             </p>
           )}
+
+          <div className="space-y-3 border-t border-border pt-4">
+            <Label>Notificações</Label>
+            <label className="flex items-center justify-between gap-3 text-sm">
+              <span>
+                Pop-up de novas mensagens
+                <span className="block text-xs text-muted-foreground">
+                  Aviso na tela quando chegar mensagem de outra conversa ou com a aba em segundo plano.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                className="size-4 shrink-0"
+                checked={prefs.popup}
+                onChange={(e) => void togglePopup(e.target.checked)}
+              />
+            </label>
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span>
+                Som das mensagens
+                <span className="block text-xs text-muted-foreground">
+                  {prefs.soundMuted ? "Silenciado em todas as conversas." : "Ativo (respeita o som de cada conversa)."}
+                </span>
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant={prefs.soundMuted ? "default" : "outline"}
+                onClick={() => {
+                  onPrefs({ soundMuted: !prefs.soundMuted });
+                  toast.success(prefs.soundMuted ? "Som restaurado." : "Som silenciado.");
+                }}
+              >
+                {prefs.soundMuted ? "Restaurar som" : "Silenciar"}
+              </Button>
+            </div>
+          </div>
 
           <form onSubmit={changePassword} className="space-y-3 border-t border-border pt-4">
             <div className="space-y-1.5">
