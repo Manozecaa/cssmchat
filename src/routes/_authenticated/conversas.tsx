@@ -1888,25 +1888,31 @@ function ForcePasswordDialog({ profileId, onDone }: { profileId: string; onDone:
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const [error, setError] = useState<string | null>(null);
+  const [touched, setTouched] = useState(false);
+  const mismatch = touched && confirm.length > 0 && password !== confirm;
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    setTouched(true);
     const problem = passwordProblem(password);
     if (problem) {
-      toast.error(problem);
+      setError(problem);
       return;
     }
     if (password !== confirm) {
-      toast.error("As senhas não conferem.");
+      setError("As senhas não coincidem. Digite a mesma senha nos dois campos.");
       return;
     }
+    setError(null);
     setBusy(true);
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) {
+    const { error: authErr } = await supabase.auth.updateUser({ password });
+    if (authErr) {
       setBusy(false);
-      toast.error(
-        /same/i.test(error.message)
-          ? "A nova senha deve ser diferente da atual."
-          : "Não foi possível alterar a senha.",
+      setError(
+        /same/i.test(authErr.message)
+          ? "A nova senha deve ser diferente da senha atual."
+          : `Não foi possível alterar a senha: ${authErr.message}`,
       );
       return;
     }
@@ -1916,7 +1922,7 @@ function ForcePasswordDialog({ profileId, onDone }: { profileId: string; onDone:
       .eq("id", profileId);
     setBusy(false);
     if (profileError) {
-      toast.error("Senha alterada, mas não foi possível concluir. Tente novamente.");
+      setError("Senha alterada, mas não foi possível concluir. Tente novamente.");
       return;
     }
     await onDone();
@@ -1934,11 +1940,10 @@ function ForcePasswordDialog({ profileId, onDone }: { profileId: string; onDone:
         <DialogHeader>
           <DialogTitle>Defina uma nova senha</DialogTitle>
           <DialogDescription>
-            Este é o seu primeiro acesso. Por segurança, crie uma senha com pelo menos 8 caracteres,
-            incluindo 1 letra maiúscula, 1 letra minúscula, 1 número e 1 caractere especial.
+            Este é o seu primeiro acesso. Por segurança, crie uma senha que atenda a todos os requisitos abaixo.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={submit} className="space-y-3">
+        <form onSubmit={submit} className="space-y-3" noValidate>
           <div className="space-y-1.5">
             <Label htmlFor="force-pass">Nova senha</Label>
             <Input
@@ -1947,8 +1952,13 @@ function ForcePasswordDialog({ profileId, onDone }: { profileId: string; onDone:
               autoComplete="new-password"
               autoFocus
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              aria-invalid={touched && !!passwordProblem(password)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError(null);
+              }}
             />
+            <PasswordRules password={password} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="force-pass-2">Confirmar nova senha</Label>
@@ -1957,9 +1967,25 @@ function ForcePasswordDialog({ profileId, onDone }: { profileId: string; onDone:
               type="password"
               autoComplete="new-password"
               value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
+              aria-invalid={mismatch}
+              onChange={(e) => {
+                setConfirm(e.target.value);
+                setTouched(true);
+                setError(null);
+              }}
             />
+            {mismatch && (
+              <p className="text-xs text-destructive">As senhas não coincidem.</p>
+            )}
           </div>
+          {error && (
+            <p
+              role="alert"
+              className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
+              {error}
+            </p>
+          )}
           <Button type="submit" disabled={busy} className="w-full">
             Salvar nova senha
           </Button>
