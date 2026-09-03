@@ -2,8 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
+  ArrowLeft,
+  Building2,
   ChevronDown,
   Download,
+  Settings,
+  UserPlus,
   Home,
   Loader2,
   LogOut,
@@ -30,7 +34,21 @@ import {
   adminDeleteAdmin,
   adminListConversations,
   adminExportConversation,
+  adminListSectors,
+  adminSaveSector,
+  adminDeleteSector,
+  adminGetSettings,
+  adminSaveSettings,
+  USER_CATEGORIES,
+  type GlobalSettings,
 } from "@/lib/admin.functions";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -72,6 +90,17 @@ type AppUser = {
   created_at: string;
   must_change_password?: boolean;
   category?: string;
+  cpf?: string | null;
+  birth_date?: string | null;
+};
+
+type Sector = { id: string; name: string; description: string | null; created_at: string; users: number };
+
+const CATEGORY_LABELS: Record<string, string> = {
+  comum: "Comum",
+  gestao: "Gestão",
+  diretoria: "Diretoria",
+  administrador: "Administrador",
 };
 
 type AdminAccount = {
@@ -92,7 +121,7 @@ type AdminConversation = {
 
 type Role = "primary" | "secondary";
 
-type View = "home" | "usuarios" | "cadastro" | "credenciais" | "admins" | "conversas";
+type View = "home" | "usuarios" | "cadastro" | "setores" | "configuracoes" | "credenciais" | "admins" | "conversas";
 
 function PainelAdm() {
   const [loading, setLoading] = useState(true);
@@ -226,12 +255,15 @@ function Shell({
     if (window.matchMedia("(max-width: 767px)").matches) setSidebarOpen(false);
   }, [view]);
   const [editing, setEditing] = useState<AppUser | null>(null);
+  const [sectors, setSectors] = useState<Sector[]>([]);
 
   async function refresh() {
     try {
-      setUsers((await adminListUsers()) as AppUser[]);
+      const [u, s] = await Promise.all([adminListUsers(), adminListSectors()]);
+      setUsers(u as AppUser[]);
+      setSectors(s as Sector[]);
     } catch {
-      toast.error("Não foi possível carregar os usuários.");
+      toast.error("Não foi possível carregar os dados.");
     }
   }
 
@@ -242,7 +274,9 @@ function Shell({
   const titles: Record<View, string> = {
     home: "Home",
     usuarios: "Usuários",
-    cadastro: editing ? "Editar usuário" : "Cadastro de usuários",
+    cadastro: editing ? "Editar usuário" : "Novo usuário",
+    setores: "Setores",
+    configuracoes: "Configurações globais",
     credenciais: "Credenciais do painel",
     admins: "Administradores",
     conversas: "Download de conversas",
@@ -297,6 +331,7 @@ function Shell({
               setView("cadastro");
             }}
           />
+          <SubItem label="Setores" active={view === "setores"} onClick={() => setView("setores")} />
           <SideItem
             icon={MessagesSquare}
             label="Conversas"
@@ -311,6 +346,12 @@ function Shell({
               onClick={() => setView("admins")}
             />
           )}
+          <SideItem
+            icon={Settings}
+            label="Configurações"
+            active={view === "configuracoes"}
+            onClick={() => setView("configuracoes")}
+          />
           <SideItem
             icon={UserCog}
             label="Credenciais"
@@ -341,14 +382,39 @@ function Shell({
         </header>
 
         <main className="flex-1 px-4 py-4 sm:px-6 sm:py-6">
-          <h1 className="mb-5 text-2xl font-light text-admin-heading">{titles[view]}</h1>
+          {view === "cadastro" ? (
+            <div className="mb-5">
+              <button
+                onClick={() => {
+                  setEditing(null);
+                  setView("usuarios");
+                }}
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+              >
+                <ArrowLeft className="size-4" /> Voltar
+              </button>
+              <h1 className="mt-1 flex items-center gap-2 text-2xl font-semibold text-admin-heading">
+                <UserPlus className="size-6 text-admin-success" /> {titles[view]}
+              </h1>
+            </div>
+          ) : (
+            <h1 className="mb-5 text-2xl font-light text-admin-heading">{titles[view]}</h1>
+          )}
 
-          {view === "home" && <HomeCards count={users.length} onGo={() => setView("usuarios")} />}
+          {view === "home" && (
+            <HomeCards
+              count={users.filter((u) => u.is_active).length}
+              sectors={sectors}
+              onGo={() => setView("usuarios")}
+              onSectors={() => setView("setores")}
+            />
+          )}
 
           {view === "cadastro" && (
             <UserForm
               key={editing?.id ?? "new"}
               editing={editing}
+              sectors={sectors}
               onDone={() => {
                 setEditing(null);
                 setView("usuarios");
@@ -356,6 +422,10 @@ function Shell({
               }}
             />
           )}
+
+          {view === "setores" && <SectorsPanel sectors={sectors} onChanged={refresh} />}
+
+          {view === "configuracoes" && <SettingsPanel role={role} />}
 
           {view === "usuarios" && (
             <UsersTable
@@ -441,47 +511,133 @@ function SubItem({
   );
 }
 
-function HomeCards({ count, onGo }: { count: number; onGo: () => void }) {
+function HomeCards({
+  count,
+  sectors,
+  onGo,
+  onSectors,
+}: {
+  count: number;
+  sectors: Sector[];
+  onGo: () => void;
+  onSectors: () => void;
+}) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-normal text-muted-foreground">
+              Usuários ativos
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between">
+            <span className="text-3xl font-semibold">{count}</span>
+            <Users className="size-8 text-muted-foreground/40" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-normal text-muted-foreground">Setores</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between">
+            <span className="text-3xl font-semibold">{sectors.length}</span>
+            <Building2 className="size-8 text-muted-foreground/40" />
+          </CardContent>
+        </Card>
+        <Card className="flex items-center justify-center gap-3 p-6">
+          <Button onClick={onGo} variant="secondary">
+            Gerenciar usuários
+          </Button>
+          <Button onClick={onSectors} variant="outline">
+            Setores
+          </Button>
+        </Card>
+      </div>
+
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-normal text-muted-foreground">
-            Usuários cadastrados
+        <CardHeader className="border-b border-border">
+          <CardTitle className="text-base font-normal text-admin-heading">
+            Usuários por setor
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex items-center justify-between">
-          <span className="text-3xl font-semibold">{count}</span>
-          <Users className="size-8 text-muted-foreground/40" />
+        <CardContent className="pt-6">
+          {sectors.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum setor cadastrado.</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {sectors.map((s) => (
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between rounded-lg border border-border px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{s.name}</p>
+                    {s.description && (
+                      <p className="truncate text-xs text-muted-foreground">{s.description}</p>
+                    )}
+                  </div>
+                  <span className="ml-3 shrink-0 rounded-full bg-admin-info/15 px-2.5 py-0.5 text-sm font-semibold text-admin-info">
+                    {s.users}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
-      </Card>
-      <Card className="flex items-center justify-center p-6">
-        <Button onClick={onGo} variant="secondary">
-          Gerenciar usuários
-        </Button>
       </Card>
     </div>
   );
 }
 
-function UserForm({ editing, onDone }: { editing: AppUser | null; onDone: () => void }) {
+function UserForm({
+  editing,
+  sectors,
+  onDone,
+}: {
+  editing: AppUser | null;
+  sectors: Sector[];
+  onDone: () => void;
+}) {
+  const NONE = "__none__";
   const [fullName, setFullName] = useState(editing?.full_name ?? "");
   const [username, setUsername] = useState(editing?.username ?? "");
   const [sector, setSector] = useState(editing?.sector ?? "");
   const [description, setDescription] = useState(editing?.description ?? "");
+  const [category, setCategory] = useState(editing?.category ?? "comum");
+  const [cpf, setCpf] = useState(editing?.cpf ?? "");
+  const [birthDate, setBirthDate] = useState(editing?.birth_date ?? "");
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [mustChange, setMustChange] = useState(editing?.must_change_password ?? !editing);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // Mantém no seletor um setor antigo que não exista mais na lista.
+  const sectorOptions = useMemo(() => {
+    const names = sectors.map((s) => s.name);
+    if (sector && !names.includes(sector)) names.push(sector);
+    return names;
+  }, [sectors, sector]);
+
   function clear() {
     setFullName("");
     setUsername("");
     setSector("");
     setDescription("");
+    setCategory("comum");
+    setCpf("");
+    setBirthDate("");
     setPassword("");
     setConfirm("");
+  }
+
+  function formatCpf(v: string) {
+    const d = v.replace(/\D/g, "").slice(0, 11);
+    return d
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
   }
 
   async function submit(e: React.FormEvent) {
@@ -490,23 +646,27 @@ function UserForm({ editing, onDone }: { editing: AppUser | null; onDone: () => 
       toast.error("As senhas não conferem.");
       return;
     }
+    const digits = cpf.replace(/\D/g, "");
+    if (digits && digits.length !== 11) {
+      toast.error("CPF deve ter 11 dígitos.");
+      return;
+    }
     setBusy(true);
+    const common = {
+      username,
+      fullName,
+      sector,
+      description,
+      category,
+      cpf,
+      birthDate,
+      mustChangePassword: mustChange,
+    };
     const res = editing
       ? await adminUpdateUser({
-          data: {
-            userId: editing.id,
-            username,
-            fullName,
-            sector,
-            description,
-            isActive,
-            mustChangePassword: mustChange,
-            ...(password ? { password } : {}),
-          },
+          data: { userId: editing.id, isActive, ...common, ...(password ? { password } : {}) },
         })
-      : await adminCreateUser({
-          data: { username, password, fullName, sector, description, mustChangePassword: mustChange },
-        });
+      : await adminCreateUser({ data: { ...common, password } });
     setBusy(false);
     if (!res.ok) {
       toast.error(res.message);
@@ -517,95 +677,200 @@ function UserForm({ editing, onDone }: { editing: AppUser | null; onDone: () => 
     onDone();
   }
 
+  const labelCls = "text-sm text-foreground";
+  const inputCls = "h-11";
+
   return (
     <Card>
       <CardContent className="pt-6">
-        <form onSubmit={submit} className="mx-auto max-w-3xl space-y-4">
-          <Field id="uf-name" label="Nome completo" required>
-            <Input
-              id="uf-name"
-              required
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-            />
-          </Field>
-          <Field id="uf-user" label="Nome de usuário (login)" required>
-            <Input
-              id="uf-user"
-              required
-              pattern="[A-Za-z0-9._-]{3,32}"
-              title="3 a 32 caracteres: letras, números, ponto, hífen ou underline"
-              autoComplete="off"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-            />
-          </Field>
-          <Field id="uf-sector" label="Setor">
-            <Input
-              id="uf-sector"
-              maxLength={80}
-              placeholder="Ex.: Financeiro"
-              value={sector}
-              onChange={(e) => setSector(e.target.value)}
-            />
-          </Field>
-          <Field id="uf-desc" label="Descrição">
-            <Textarea
-              id="uf-desc"
-              rows={3}
-              maxLength={500}
-              placeholder="Cargo, responsabilidades, observações…"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </Field>
-          <Field id="uf-pass" label={editing ? "Nova senha (opcional)" : "Senha"} required={!editing}>
-            <Input
-              id="uf-pass"
-              type="password"
-              required={!editing}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </Field>
-          <Field id="uf-confirm" label="Confirmar senha" required={!editing}>
-            <Input
-              id="uf-confirm"
-              type="password"
-              required={!editing}
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-            />
-          </Field>
-          <Field id="uf-must" label="Troca de senha">
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+        <form onSubmit={submit} className="space-y-6">
+          <div className="grid gap-5 lg:grid-cols-3">
+            <div className="space-y-2 lg:col-span-1">
+              <Label htmlFor="uf-name" className={labelCls}>
+                Nome completo <span className="text-admin-danger">*</span>
+              </Label>
+              <Input
+                id="uf-name"
+                required
+                className={inputCls}
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="uf-cpf" className={labelCls}>
+                CPF
+              </Label>
+              <Input
+                id="uf-cpf"
+                inputMode="numeric"
+                placeholder="000.000.000-00"
+                className={inputCls}
+                value={cpf}
+                onChange={(e) => setCpf(formatCpf(e.target.value))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="uf-birth" className={labelCls}>
+                Data de nascimento
+              </Label>
+              <Input
+                id="uf-birth"
+                type="date"
+                className={inputCls}
+                value={birthDate}
+                onChange={(e) => setBirthDate(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="uf-user" className={labelCls}>
+                Nome de usuário (login) <span className="text-admin-danger">*</span>
+              </Label>
+              <Input
+                id="uf-user"
+                required
+                pattern="[A-Za-z0-9._-]{3,32}"
+                title="3 a 32 caracteres: letras, números, ponto, hífen ou underline"
+                autoComplete="off"
+                className={inputCls}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="uf-pass" className={labelCls}>
+                {editing ? "Nova senha (opcional)" : "Senha"}{" "}
+                {!editing && <span className="text-admin-danger">*</span>}
+              </Label>
+              <Input
+                id="uf-pass"
+                type="password"
+                required={!editing}
+                autoComplete="new-password"
+                className={inputCls}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="uf-sector" className={labelCls}>
+                Setor
+              </Label>
+              <Select
+                value={sector || NONE}
+                onValueChange={(v) => setSector(v === NONE ? "" : v)}
+              >
+                <SelectTrigger id="uf-sector" className="h-11">
+                  <SelectValue placeholder="— Sem setor —" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>— Sem setor —</SelectItem>
+                  {sectorOptions.map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {sectors.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Nenhum setor cadastrado ainda. Cadastre em Cadastros → Setores.
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="uf-desc" className={labelCls}>
+                Cargo
+              </Label>
+              <Input
+                id="uf-desc"
+                maxLength={120}
+                placeholder="Ex.: Enfermeiro(a), Analista, Coordenador(a)…"
+                className={inputCls}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="uf-cat" className={labelCls}>
+                Categoria
+              </Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger id="uf-cat" className="h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {USER_CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {CATEGORY_LABELS[c]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Grupos criados por Gestão, Diretoria e Administradores são fixados automaticamente
+                para os participantes.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="uf-confirm" className={labelCls}>
+                Confirmar senha {!editing && <span className="text-admin-danger">*</span>}
+              </Label>
+              <Input
+                id="uf-confirm"
+                type="password"
+                required={!editing}
+                autoComplete="new-password"
+                className={inputCls}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3 rounded-lg bg-muted/40 p-4">
+            <label className="flex items-start gap-2 text-sm">
               <input
-                id="uf-must"
                 type="checkbox"
-                className="size-4"
+                className="mt-0.5 size-4"
                 checked={mustChange}
                 onChange={(e) => setMustChange(e.target.checked)}
               />
-              Obrigar o usuário a trocar a senha no próximo acesso (mínimo 8 caracteres, 1 maiúscula,
-              1 minúscula, 1 número e 1 caractere especial).
+              <span>
+                Obrigar o usuário a trocar a senha no próximo acesso
+                <span className="block text-xs text-muted-foreground">
+                  Mínimo 8 caracteres, 1 maiúscula, 1 minúscula, 1 número e 1 caractere especial.
+                </span>
+              </span>
             </label>
-          </Field>
-          {editing && (
-            <Field id="uf-active" label="Usuário ativo">
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            {editing && (
+              <label className="flex items-start gap-2 text-sm">
                 <input
-                  id="uf-active"
                   type="checkbox"
-                  className="size-4"
+                  className="mt-0.5 size-4"
                   checked={isActive}
                   onChange={(e) => setIsActive(e.target.checked)}
                 />
-                Usuários inativos não aparecem no chat e não podem ser contatados.
+                <span>
+                  Usuário ativo
+                  <span className="block text-xs text-muted-foreground">
+                    Usuários inativos não aparecem no chat e não podem ser contatados.
+                  </span>
+                </span>
               </label>
-            </Field>
-          )}
+            )}
+          </div>
 
-          <div className="flex justify-center gap-3 border-t border-border pt-5">
+          <div className="flex justify-end gap-3 border-t border-border pt-5">
             <Button type="button" variant="outline" onClick={clear}>
               Limpar
             </Button>
@@ -614,7 +879,7 @@ function UserForm({ editing, onDone }: { editing: AppUser | null; onDone: () => 
               disabled={busy}
               className="bg-admin-success text-white hover:bg-admin-success/90"
             >
-              {editing ? "Salvar" : "Enviar"}
+              {editing ? "Salvar" : "Cadastrar"}
             </Button>
           </div>
         </form>
@@ -699,6 +964,7 @@ function UsersTable({
                 <th className="pb-3 pr-4">Nome</th>
                 <th className="pb-3 pr-4">Usuário</th>
                 <th className="pb-3 pr-4">Setor</th>
+                <th className="pb-3 pr-4">Categoria</th>
                 <th className="pb-3 pr-4">Status</th>
                 <th className="pb-3 pr-4">Criado em</th>
                 <th className="pb-3">Ação</th>
@@ -707,7 +973,7 @@ function UsersTable({
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-6 text-muted-foreground">
+                  <td colSpan={7} className="py-6 text-muted-foreground">
                     Nenhum usuário encontrado.
                   </td>
                 </tr>
@@ -717,6 +983,9 @@ function UsersTable({
                   <td className="py-4 pr-4">{u.full_name}</td>
                   <td className="py-4 pr-4 text-muted-foreground">@{u.username}</td>
                   <td className="py-4 pr-4 text-muted-foreground">{u.sector || "—"}</td>
+                  <td className="py-4 pr-4 text-muted-foreground">
+                    {CATEGORY_LABELS[u.category ?? "comum"] ?? u.category}
+                  </td>
                   <td className="py-4 pr-4">
                     <span
                       className={cn(
@@ -1038,6 +1307,7 @@ function ConversationsPanel() {
     if (!q) return convs;
     return convs.filter(
       (c) =>
+        c.id.toLowerCase().includes(q) ||
         (c.title ?? "").toLowerCase().includes(q) ||
         c.participants.some((p) => p.toLowerCase().includes(q)),
     );
@@ -1072,7 +1342,7 @@ function ConversationsPanel() {
       <div className="flex justify-end">
         <Input
           className="max-w-xs"
-          placeholder="Buscar conversa ou participante…"
+          placeholder="Buscar por ID, conversa ou participante…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -1132,6 +1402,7 @@ function ConversationsPanel() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left font-semibold">
+                <th className="pb-3 pr-4">ID</th>
                 <th className="pb-3 pr-4">Conversa</th>
                 <th className="pb-3 pr-4">Tipo</th>
                 <th className="pb-3 pr-4">Participantes</th>
@@ -1142,13 +1413,26 @@ function ConversationsPanel() {
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-6 text-muted-foreground">
+                  <td colSpan={6} className="py-6 text-muted-foreground">
                     Nenhuma conversa encontrada.
                   </td>
                 </tr>
               )}
               {filtered.map((c) => (
                 <tr key={c.id} className="border-b border-border last:border-0">
+                  <td className="py-4 pr-4">
+                    <button
+                      type="button"
+                      title={c.id}
+                      onClick={() => {
+                        void navigator.clipboard.writeText(c.id);
+                        toast.success("ID copiado.");
+                      }}
+                      className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs hover:bg-accent"
+                    >
+                      {c.id.slice(0, 8)}…
+                    </button>
+                  </td>
                   <td className="py-4 pr-4">
                     {c.title ?? (c.is_group ? "Grupo" : c.participants.join(" · "))}
                   </td>
@@ -1173,5 +1457,259 @@ function ConversationsPanel() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/* -------------------------------- Setores -------------------------------- */
+
+function SectorsPanel({ sectors, onChanged }: { sectors: Sector[]; onChanged: () => Promise<void> }) {
+  const [editing, setEditing] = useState<Sector | null>(null);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  function startEdit(s: Sector | null) {
+    setEditing(s);
+    setName(s?.name ?? "");
+    setDescription(s?.description ?? "");
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    const res = await adminSaveSector({
+      data: { ...(editing ? { id: editing.id } : {}), name, description },
+    });
+    setBusy(false);
+    if (!res.ok) {
+      toast.error(res.message);
+      return;
+    }
+    toast.success(res.message);
+    startEdit(null);
+    await onChanged();
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader className="border-b border-border">
+          <CardTitle className="text-base font-normal text-admin-heading">
+            {editing ? `Editar setor — ${editing.name}` : "Novo setor"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <form onSubmit={submit} className="mx-auto max-w-3xl space-y-4">
+            <Field id="sc-name" label="Nome do setor" required>
+              <Input
+                id="sc-name"
+                required
+                maxLength={80}
+                placeholder="Ex.: Enfermagem"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </Field>
+            <Field id="sc-desc" label="Descrição">
+              <Textarea
+                id="sc-desc"
+                rows={2}
+                maxLength={300}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </Field>
+            <div className="flex justify-center gap-3 border-t border-border pt-5">
+              <Button type="button" variant="outline" onClick={() => startEdit(null)}>
+                {editing ? "Cancelar" : "Limpar"}
+              </Button>
+              <Button
+                type="submit"
+                disabled={busy}
+                className="bg-admin-success text-white hover:bg-admin-success/90"
+              >
+                {editing ? "Salvar" : "Cadastrar setor"}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="border-b border-border">
+          <CardTitle className="text-base font-normal text-admin-heading">
+            Setores cadastrados
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto pt-6">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left font-semibold">
+                <th className="pb-3 pr-4">Setor</th>
+                <th className="pb-3 pr-4">Descrição</th>
+                <th className="pb-3 pr-4">Usuários</th>
+                <th className="pb-3">Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sectors.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="py-6 text-muted-foreground">
+                    Nenhum setor cadastrado.
+                  </td>
+                </tr>
+              )}
+              {sectors.map((s) => (
+                <tr key={s.id} className="border-b border-border last:border-0">
+                  <td className="py-4 pr-4 font-medium">{s.name}</td>
+                  <td className="py-4 pr-4 text-muted-foreground">{s.description || "—"}</td>
+                  <td className="py-4 pr-4">{s.users}</td>
+                  <td className="py-4">
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button
+                        size="sm"
+                        onClick={() => startEdit(s)}
+                        className="bg-admin-success text-white hover:bg-admin-success/90"
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={async () => {
+                          if (!window.confirm(`Excluir o setor "${s.name}"?`)) return;
+                          const res = await adminDeleteSector({ data: { id: s.id } });
+                          if (!res.ok) {
+                            toast.error(res.message);
+                            return;
+                          }
+                          toast.success(res.message);
+                          await onChanged();
+                        }}
+                      >
+                        Excluir
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/* --------------------------- Configurações globais ------------------------ */
+
+function SettingsPanel({ role }: { role: Role }) {
+  const [settings, setSettings] = useState<GlobalSettings | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    adminGetSettings()
+      .then((s) => setSettings(s))
+      .catch(() => toast.error("Não foi possível carregar as configurações."));
+  }, []);
+
+  if (!settings) {
+    return <Loader2 className="size-5 animate-spin text-muted-foreground" />;
+  }
+
+  const readOnly = role !== "primary";
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!settings) return;
+    setBusy(true);
+    const res = await adminSaveSettings({ data: settings });
+    setBusy(false);
+    if (!res.ok) {
+      toast.error(res.message);
+      return;
+    }
+    toast.success(res.message);
+  }
+
+  return (
+    <Card>
+      <CardHeader className="border-b border-border">
+        <CardTitle className="text-base font-normal text-admin-heading">
+          Parâmetros do sistema
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-6">
+        {readOnly && (
+          <p className="mx-auto mb-4 max-w-3xl rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+            Somente o administrador principal pode alterar estas configurações.
+          </p>
+        )}
+        <form onSubmit={submit} className="mx-auto max-w-3xl space-y-4">
+          <Field id="st-name" label="Nome do sistema">
+            <Input
+              id="st-name"
+              maxLength={60}
+              disabled={readOnly}
+              value={settings.system_name}
+              onChange={(e) => setSettings({ ...settings, system_name: e.target.value })}
+            />
+          </Field>
+          <Field id="st-session" label="Tempo de sessão (minutos)">
+            <div>
+              <Input
+                id="st-session"
+                type="number"
+                min={1}
+                max={1440}
+                disabled={readOnly}
+                value={settings.session_timeout_minutes}
+                onChange={(e) =>
+                  setSettings({ ...settings, session_timeout_minutes: Number(e.target.value) })
+                }
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                O usuário é desconectado após esse período sem atividade no chat.
+              </p>
+            </div>
+          </Field>
+          <Field id="st-attach" label="Limite de anexo (MB)">
+            <Input
+              id="st-attach"
+              type="number"
+              min={1}
+              max={200}
+              disabled={readOnly}
+              value={settings.max_attachment_mb}
+              onChange={(e) => setSettings({ ...settings, max_attachment_mb: Number(e.target.value) })}
+            />
+          </Field>
+          <Field id="st-groups" label="Grupos por usuários">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <input
+                id="st-groups"
+                type="checkbox"
+                className="size-4"
+                disabled={readOnly}
+                checked={settings.allow_user_groups}
+                onChange={(e) => setSettings({ ...settings, allow_user_groups: e.target.checked })}
+              />
+              Permitir que usuários comuns criem grupos.
+            </label>
+          </Field>
+          {!readOnly && (
+            <div className="flex justify-center gap-3 border-t border-border pt-5">
+              <Button
+                type="submit"
+                disabled={busy}
+                className="bg-admin-success text-white hover:bg-admin-success/90"
+              >
+                Salvar configurações
+              </Button>
+            </div>
+          )}
+        </form>
+      </CardContent>
+    </Card>
   );
 }
