@@ -266,6 +266,7 @@ export type Database = {
           deleted_at: string | null
           edited_at: string | null
           id: string
+          is_system: boolean
           sender_id: string
         }
         Insert: {
@@ -279,6 +280,7 @@ export type Database = {
           deleted_at?: string | null
           edited_at?: string | null
           id?: string
+          is_system?: boolean
           sender_id: string
         }
         Update: {
@@ -292,6 +294,7 @@ export type Database = {
           deleted_at?: string | null
           edited_at?: string | null
           id?: string
+          is_system?: boolean
           sender_id?: string
         }
         Relationships: [
