@@ -282,6 +282,13 @@ function ConversationsPage() {
       }
     }
     setLastMessages(last);
+    setRecentMessages(
+      (recent ?? []).map((r) => ({
+        conversation_id: r.conversation_id,
+        sender_id: r.sender_id,
+        created_at: r.created_at,
+      })),
+    );
 
     // Confirmação de recebimento: este cliente acabou de receber as mensagens
     // mais novas de cada conversa → registra last_delivered_at (2 checks).
