@@ -510,15 +510,26 @@ function ConversationsPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Marca a conversa aberta como lida (recibo de leitura estilo WhatsApp)
+  // Marca a conversa aberta como lida (recibo de leitura estilo WhatsApp).
+  // Usa o horário da última mensagem quando ele for maior que o relógio local,
+  // evitando que a notificação "volte" por diferença de relógio.
   useEffect(() => {
     if (!activeId || !me) return;
+    const newest = messages.length > 0 ? messages[messages.length - 1]!.created_at : null;
+    const stamp = new Date(
+      Math.max(Date.now(), newest ? new Date(newest).getTime() : 0),
+    ).toISOString();
+    setReadAt((prev) =>
+      prev[activeId] && new Date(prev[activeId]!) >= new Date(stamp)
+        ? prev
+        : { ...prev, [activeId]: stamp },
+    );
     void supabase
       .from("conversation_members")
-      .update({ last_read_at: new Date().toISOString() })
+      .update({ last_read_at: stamp, last_delivered_at: stamp })
       .eq("conversation_id", activeId)
       .eq("user_id", me);
-  }, [activeId, me, messages.length]);
+  }, [activeId, me, messages]);
 
   function otherMember(c: Conversation) {
     const other = members.find((m) => m.conversation_id === c.id && m.user_id !== me);
