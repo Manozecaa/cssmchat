@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import logo from "@/assets/cssm-logo.png";
+import logo from "@/assets/cssm-logo-white.png";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -79,7 +79,7 @@ function AuthPage() {
             alt="Casa de Saúde Santa Maria"
             width={512}
             height={512}
-            className="size-24 object-contain brightness-0 invert drop-shadow"
+            className="size-24 object-contain drop-shadow"
           />
           <h1 className="mt-6 text-2xl font-bold leading-tight">
             Casa de Saúde
