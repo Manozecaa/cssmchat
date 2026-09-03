@@ -1975,11 +1975,14 @@ function ConversationsPage() {
 
       {active && me && (
         <NewEventDialog
+          key={active.id}
           open={eventOpen}
           onOpenChange={setEventOpen}
           conversationId={active.id}
+          isGroup={active.is_group}
           userId={me}
           memberIds={conversationMembers(active.id).map((m) => m.user_id)}
+          profiles={profiles}
           onCreated={(ev) => setEvents((prev) => [...prev, ev])}
         />
       )}
@@ -2238,15 +2241,19 @@ function NewEventDialog({
   open,
   onOpenChange,
   conversationId,
+  isGroup,
   userId,
   memberIds,
+  profiles,
   onCreated,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   conversationId: string;
+  isGroup: boolean;
   userId: string;
   memberIds: string[];
+  profiles: Profile[];
   onCreated: (ev: ChatEvent) => void;
 }) {
   const [title, setTitle] = useState("");
@@ -2255,6 +2262,32 @@ function NewEventDialog({
   const [time, setTime] = useState("");
   const [duration, setDuration] = useState("30");
   const [busy, setBusy] = useState(false);
+  // Participantes: por padrão todos da conversa; em grupos é possível escolher
+  // pessoas específicas e adicionar contatos de fora do grupo.
+  const [selected, setSelected] = useState<string[]>(() =>
+    Array.from(new Set([userId, ...memberIds])),
+  );
+  const [extraSearch, setExtraSearch] = useState("");
+  const groupMembers = useMemo(
+    () => profiles.filter((p) => memberIds.includes(p.id) && p.id !== userId),
+    [profiles, memberIds, userId],
+  );
+  const outsiders = useMemo(() => {
+    const q = extraSearch.trim().toLowerCase();
+    return profiles.filter(
+      (p) =>
+        !memberIds.includes(p.id) &&
+        p.id !== userId &&
+        (selected.includes(p.id) ||
+          (q.length > 0 &&
+            (p.full_name.toLowerCase().includes(q) || p.username.toLowerCase().includes(q)))),
+    );
+  }, [profiles, memberIds, userId, extraSearch, selected]);
+  const allGroupSelected = groupMembers.every((p) => selected.includes(p.id));
+
+  function toggle(id: string, on: boolean) {
+    setSelected((prev) => (on ? Array.from(new Set([...prev, id])) : prev.filter((x) => x !== id)));
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -2294,7 +2327,7 @@ function NewEventDialog({
         conversation_id: conversationId,
       });
       if (!calErr) {
-        const ids = Array.from(new Set([userId, ...memberIds]));
+        const ids = Array.from(new Set([userId, ...selected]));
         await supabase
           .from("calendar_event_participants")
           .insert(ids.map((uid) => ({ event_id: calId, user_id: uid })));
@@ -2316,11 +2349,11 @@ function NewEventDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Novo evento</DialogTitle>
           <DialogDescription>
-            Agende uma reunião com a pessoa ou o grupo desta conversa.
+            Agende uma reunião e escolha quem participa. O evento aparece na agenda de cada participante.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
@@ -2373,6 +2406,61 @@ function NewEventDialog({
               onChange={(e) => setDescription(e.target.value)}
               maxLength={500}
             />
+          </div>
+          <div className="space-y-2">
+            <Label>Participantes</Label>
+            {!isGroup ? (
+              <p className="text-xs text-muted-foreground">
+                Você e{" "}
+                {groupMembers.map((p) => p.full_name).join(", ") || "o outro participante"}{" "}
+                serão adicionados ao evento.
+              </p>
+            ) : (
+              <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border p-2">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <Checkbox
+                    checked={allGroupSelected}
+                    onCheckedChange={(v) =>
+                      setSelected((prev) => {
+                        const ids = groupMembers.map((p) => p.id);
+                        return v
+                          ? Array.from(new Set([...prev, ...ids]))
+                          : prev.filter((x) => !ids.includes(x));
+                      })
+                    }
+                  />
+                  Todos do grupo
+                </label>
+                {groupMembers.map((p) => (
+                  <label key={p.id} className="flex items-center gap-2 pl-5 text-sm">
+                    <Checkbox
+                      checked={selected.includes(p.id)}
+                      onCheckedChange={(v) => toggle(p.id, !!v)}
+                    />
+                    <span className="truncate">{p.full_name}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <Input
+              value={extraSearch}
+              onChange={(e) => setExtraSearch(e.target.value)}
+              placeholder="Adicionar contato de fora da conversa..."
+            />
+            {outsiders.length > 0 && (
+              <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border p-2">
+                {outsiders.map((p) => (
+                  <label key={p.id} className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={selected.includes(p.id)}
+                      onCheckedChange={(v) => toggle(p.id, !!v)}
+                    />
+                    <span className="truncate">{p.full_name}</span>
+                    <span className="truncate text-xs text-muted-foreground">@{p.username}</span>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button type="submit" disabled={busy} className="w-full">
