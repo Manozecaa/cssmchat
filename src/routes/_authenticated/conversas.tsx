@@ -1880,6 +1880,23 @@ function NewEventDialog({
         sender_id: userId,
         content: `📅 Evento agendado: ${data.title} — ${starts.toLocaleString("pt-BR")} (${data.duration_minutes} min)`,
       });
+      // Também salva na agenda pessoal de todos os participantes da conversa
+      const calId = crypto.randomUUID();
+      const { error: calErr } = await supabase.from("calendar_events").insert({
+        id: calId,
+        created_by: userId,
+        title: data.title,
+        description: data.description,
+        starts_at: data.starts_at,
+        duration_minutes: data.duration_minutes,
+        conversation_id: conversationId,
+      });
+      if (!calErr) {
+        const ids = Array.from(new Set([userId, ...memberIds]));
+        await supabase
+          .from("calendar_event_participants")
+          .insert(ids.map((uid) => ({ event_id: calId, user_id: uid })));
+      }
       onCreated(data);
     }
     setBusy(false);
