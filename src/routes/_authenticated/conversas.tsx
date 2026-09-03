@@ -190,6 +190,45 @@ function writePrefs(p: NotifPrefs) {
 const MESSAGE_COLUMNS =
   "id, conversation_id, sender_id, content, created_at, attachment_path, attachment_name, attachment_type, attachment_size, is_system";
 
+const MENTION_RE = /@([a-z0-9._-]+)/gi;
+
+/** Verifica se o texto menciona o usuário (@usuario) ou todos (@todos). */
+function mentionsUser(content: string, username: string | null | undefined) {
+  if (!username) return false;
+  const u = username.toLowerCase();
+  for (const match of content.matchAll(MENTION_RE)) {
+    const handle = match[1]!.toLowerCase();
+    if (handle === u || handle === "todos") return true;
+  }
+  return false;
+}
+
+/** Renderiza o texto destacando as menções @usuario. */
+function renderWithMentions(content: string, known: Set<string>, mine: boolean) {
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  for (const match of content.matchAll(MENTION_RE)) {
+    const handle = match[1]!.toLowerCase();
+    if (!known.has(handle) && handle !== "todos") continue;
+    const start = match.index ?? 0;
+    if (start > last) parts.push(content.slice(last, start));
+    parts.push(
+      <span
+        key={start}
+        className={cn(
+          "rounded px-1 font-semibold",
+          mine ? "bg-primary-foreground/20" : "bg-primary/15 text-primary",
+        )}
+      >
+        {match[0]}
+      </span>,
+    );
+    last = start + match[0].length;
+  }
+  if (last < content.length) parts.push(content.slice(last));
+  return parts.length > 0 ? parts : content;
+}
+
 function ConversationsPage() {
   const navigate = useNavigate();
   const [me, setMe] = useState<string | null>(null);
