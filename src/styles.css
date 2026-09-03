@@ -69,6 +69,11 @@
   --color-admin-success: var(--admin-success);
   --color-admin-danger: var(--admin-danger);
   --color-admin-info: var(--admin-info);
+  --color-login-bg: var(--login-bg);
+  --color-login-bg-accent: var(--login-bg-accent);
+  --color-login-panel: var(--login-panel);
+  --color-login-panel-foreground: var(--login-panel-foreground);
+  --color-login-button: var(--login-button);
 }
 
 
@@ -116,6 +121,11 @@
   --admin-success: oklch(0.68 0.14 163);
   --admin-danger: oklch(0.61 0.2 25);
   --admin-info: oklch(0.6 0.18 255);
+  --login-bg: oklch(0.25 0.04 245);
+  --login-bg-accent: oklch(0.36 0.05 215);
+  --login-panel: oklch(0.27 0.045 250);
+  --login-panel-foreground: oklch(0.98 0.005 250);
+  --login-button: oklch(0.38 0.07 255);
 }
 
 

@@ -128,6 +128,7 @@ type Conversation = {
   updated_at: string;
   avatar_path: string | null;
   only_admins_send: boolean;
+  created_by: string;
 };
 type Member = {
   conversation_id: string;
@@ -161,6 +162,26 @@ type ChatEvent = {
   starts_at: string;
   duration_minutes: number;
 };
+
+type NotifPrefs = { popup: boolean; soundMuted: boolean };
+const PREFS_KEY = "nexo:notif-prefs";
+function readPrefs(): NotifPrefs {
+  if (typeof window === "undefined") return { popup: true, soundMuted: false };
+  try {
+    const raw = window.localStorage.getItem(PREFS_KEY);
+    if (raw) return { popup: true, soundMuted: false, ...(JSON.parse(raw) as Partial<NotifPrefs>) };
+  } catch {
+    /* ignore */
+  }
+  return { popup: true, soundMuted: false };
+}
+function writePrefs(p: NotifPrefs) {
+  try {
+    window.localStorage.setItem(PREFS_KEY, JSON.stringify(p));
+  } catch {
+    /* ignore */
+  }
+}
 
 const MESSAGE_COLUMNS =
   "id, conversation_id, sender_id, content, created_at, attachment_path, attachment_name, attachment_type, attachment_size";
@@ -227,7 +248,7 @@ function ConversationsPage() {
     const [{ data: convs }, { data: mems }, { data: recent }] = await Promise.all([
       supabase
         .from("conversations")
-        .select("id, title, is_group, updated_at, avatar_path, only_admins_send")
+        .select("id, title, is_group, updated_at, avatar_path, only_admins_send, created_by")
         .order("updated_at", { ascending: false }),
       supabase
         .from("conversation_members")
@@ -277,7 +298,24 @@ function ConversationsPage() {
     navigate({ to: "/auth", replace: true });
   });
 
-  // Notificação sonora global (respeita silenciar e som por conversa)
+  // Preferências locais de notificação (pop-up e som global)
+  const [prefs, setPrefs] = useState<NotifPrefs>(() => readPrefs());
+  const prefsRef = useRef(prefs);
+  prefsRef.current = prefs;
+  const profileMapRef = useRef(profileMap);
+  profileMapRef.current = profileMap;
+  const conversationsRef = useRef(conversations);
+  conversationsRef.current = conversations;
+  const activeIdRef = useRef(activeId);
+  activeIdRef.current = activeId;
+
+  function updatePrefs(patch: Partial<NotifPrefs>) {
+    const next = { ...prefsRef.current, ...patch };
+    setPrefs(next);
+    writePrefs(next);
+  }
+
+  // Notificação global: som (respeita silenciar geral e por conversa) + pop-up
   useEffect(() => {
     const channel = supabase
       .channel("messages:all")
@@ -286,8 +324,31 @@ function ConversationsPage() {
         if (row.sender_id === meRef.current) return;
         const membership = myMembership(row.conversation_id);
         if (!membership) return;
-        if (membership.muted_until && new Date(membership.muted_until) > new Date()) return;
-        playSound((membership.sound ?? "padrao") as SoundId);
+        const convMuted = !!membership.muted_until && new Date(membership.muted_until) > new Date();
+        const p = prefsRef.current;
+        if (!convMuted && !p.soundMuted) playSound((membership.sound ?? "padrao") as SoundId);
+
+        if (!p.popup || convMuted) return;
+        const isActiveVisible =
+          activeIdRef.current === row.conversation_id && document.visibilityState === "visible";
+        if (isActiveVisible) return;
+        const sender = profileMapRef.current[row.sender_id]?.full_name ?? "Alguém";
+        const conv = conversationsRef.current.find((c) => c.id === row.conversation_id);
+        const where = conv?.is_group && conv.title ? ` em ${conv.title}` : "";
+        const body = row.content || (row.attachment_name ? `📎 ${row.attachment_name}` : "Nova mensagem");
+        if (typeof Notification !== "undefined" && Notification.permission === "granted" && document.visibilityState !== "visible") {
+          const n = new Notification(`${sender}${where}`, { body, tag: row.conversation_id });
+          n.onclick = () => {
+            window.focus();
+            setActiveId(row.conversation_id);
+            n.close();
+          };
+        } else {
+          toast(`${sender}${where}`, {
+            description: body,
+            action: { label: "Abrir", onClick: () => setActiveId(row.conversation_id) },
+          });
+        }
       })
       .subscribe();
     return () => {
@@ -508,6 +569,8 @@ function ConversationsPage() {
     const list = conversations.filter((c) => {
       const mine = members.find((m) => m.conversation_id === c.id && m.user_id === me);
       if (!mine) return false;
+      // Conversa sem nenhuma mensagem só aparece para quem a criou.
+      if (!lastMessages[c.id] && c.created_by !== me) return false;
       if (!mine.hidden_at) return true;
       const last = lastMessages[c.id];
       // Uma mensagem nova depois da exclusão traz a conversa de volta.
@@ -1071,7 +1134,15 @@ function ConversationsPage() {
                             unread ? "font-semibold text-foreground" : "text-muted-foreground",
                           )}
                         >
-                          {lastMessages[c.id]?.preview || "Sem mensagens"}
+                          {lastMessages[c.id]
+                            ? c.is_group
+                              ? `${
+                                  lastMessages[c.id]!.sender_id === me
+                                    ? "Você"
+                                    : (profileMap[lastMessages[c.id]!.sender_id]?.full_name ?? "Alguém").split(" ")[0]
+                                }: ${lastMessages[c.id]!.preview}`
+                              : lastMessages[c.id]!.preview
+                            : "Sem mensagens"}
                         </span>
                         {isMuted(c.id) && (
                           <BellOff className="size-3 shrink-0 text-muted-foreground" />
@@ -1576,13 +1647,17 @@ function ConversationsPage() {
         profile={myProfile}
         avatarUrl={avatarSrc(myProfile?.avatar_url, signed)}
         onSaved={loadProfiles}
+        prefs={prefs}
+        onPrefs={updatePrefs}
       />
     </div>
   );
 }
 
 function passwordProblem(password: string): string | null {
-  if (password.length < 8) return "A senha deve ter mais de 8 caracteres.";
+  if (password.length < 8) return "A senha deve ter pelo menos 8 caracteres.";
+  if (!/[A-Z]/.test(password)) return "A senha deve conter ao menos 1 letra maiúscula.";
+  if (!/[a-z]/.test(password)) return "A senha deve conter ao menos 1 letra minúscula.";
   if (!/\d/.test(password)) return "A senha deve conter ao menos 1 número.";
   if (!/[^A-Za-z0-9\s]/.test(password)) return "A senha deve conter ao menos 1 caractere especial.";
   return null;
@@ -1639,8 +1714,8 @@ function ForcePasswordDialog({ profileId, onDone }: { profileId: string; onDone:
         <DialogHeader>
           <DialogTitle>Defina uma nova senha</DialogTitle>
           <DialogDescription>
-            Este é o seu primeiro acesso. Por segurança, crie uma senha com mais de 8 caracteres,
-            ao menos 1 número e 1 caractere especial.
+            Este é o seu primeiro acesso. Por segurança, crie uma senha com pelo menos 8 caracteres,
+            incluindo 1 letra maiúscula, 1 letra minúscula, 1 número e 1 caractere especial.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
@@ -1812,13 +1887,24 @@ function UserSettingsDialog({
   profile,
   avatarUrl,
   onSaved,
+  prefs,
+  onPrefs,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   profile: Profile | null;
   avatarUrl: string | undefined;
   onSaved: () => Promise<void>;
+  prefs: NotifPrefs;
+  onPrefs: (patch: Partial<NotifPrefs>) => void;
 }) {
+  async function togglePopup(on: boolean) {
+    if (on && typeof Notification !== "undefined" && Notification.permission === "default") {
+      const res = await Notification.requestPermission();
+      if (res !== "granted") toast.info("Sem permissão do navegador, o pop-up aparece dentro do chat.");
+    }
+    onPrefs({ popup: on });
+  }
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [password, setPassword] = useState("");
@@ -1991,6 +2077,43 @@ function UserSettingsDialog({
               {profile.description}
             </p>
           )}
+
+          <div className="space-y-3 border-t border-border pt-4">
+            <Label>Notificações</Label>
+            <label className="flex items-center justify-between gap-3 text-sm">
+              <span>
+                Pop-up de novas mensagens
+                <span className="block text-xs text-muted-foreground">
+                  Aviso na tela quando chegar mensagem de outra conversa ou com a aba em segundo plano.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                className="size-4 shrink-0"
+                checked={prefs.popup}
+                onChange={(e) => void togglePopup(e.target.checked)}
+              />
+            </label>
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span>
+                Som das mensagens
+                <span className="block text-xs text-muted-foreground">
+                  {prefs.soundMuted ? "Silenciado em todas as conversas." : "Ativo (respeita o som de cada conversa)."}
+                </span>
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant={prefs.soundMuted ? "default" : "outline"}
+                onClick={() => {
+                  onPrefs({ soundMuted: !prefs.soundMuted });
+                  toast.success(prefs.soundMuted ? "Som restaurado." : "Som silenciado.");
+                }}
+              >
+                {prefs.soundMuted ? "Restaurar som" : "Silenciar"}
+              </Button>
+            </div>
+          </div>
 
           <form onSubmit={changePassword} className="space-y-3 border-t border-border pt-4">
             <div className="space-y-1.5">

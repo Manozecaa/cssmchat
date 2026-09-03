@@ -13,6 +13,12 @@ export function useSessionTimeout(onExpire: () => void) {
   expireRef.current = onExpire;
 
   useEffect(() => {
+    // "Manter conectado" na tela de login desativa o encerramento por inatividade.
+    try {
+      if (window.localStorage.getItem("nexo:remember") === "1") return;
+    } catch {
+      /* ignore */
+    }
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let minutes = DEFAULT_MINUTES;
