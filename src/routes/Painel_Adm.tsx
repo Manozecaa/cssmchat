@@ -46,7 +46,7 @@ import {
 } from "@/lib/admin.functions";
 import {
   CATEGORIES,
-  CATEGORY_LABELS,
+  CATEGORY_LABELS as PERM_CATEGORY_LABELS,
   PERMISSION_KEYS,
   PERMISSION_LABELS,
   type CategoryPermissions,
@@ -285,6 +285,7 @@ function Shell({
     usuarios: "Usuários",
     cadastro: editing ? "Editar usuário" : "Novo usuário",
     setores: "Setores",
+    permissoes: "Grupos de usuário",
     configuracoes: "Configurações globais",
     credenciais: "Credenciais do painel",
     admins: "Administradores",
@@ -1769,7 +1770,7 @@ function PermissionsPanel({ role }: { role: Role }) {
                 <th className="px-3 py-2 font-medium text-admin-heading">Permissão</th>
                 {CATEGORIES.map((cat) => (
                   <th key={cat} className="px-3 py-2 text-center font-medium text-admin-heading">
-                    {CATEGORY_LABELS[cat]}
+                    {PERM_CATEGORY_LABELS[cat]}
                   </th>
                 ))}
               </tr>
@@ -1785,7 +1786,7 @@ function PermissionsPanel({ role }: { role: Role }) {
                     <td key={cat} className="px-3 py-3 text-center">
                       <input
                         type="checkbox"
-                        aria-label={`${PERMISSION_LABELS[key].label} - ${CATEGORY_LABELS[cat]}`}
+                        aria-label={`${PERMISSION_LABELS[key].label} - ${PERM_CATEGORY_LABELS[cat]}`}
                         className="size-4 cursor-pointer disabled:cursor-not-allowed"
                         checked={cat === "administrador" ? true : perms[cat][key]}
                         disabled={readOnly || cat === "administrador"}
