@@ -1845,6 +1845,51 @@ function ConversationsPage() {
                   </button>
                 </div>
               )}
+              {mention && (() => {
+                const memberIds = new Set(conversationMembers(active.id).map((m) => m.user_id));
+                const options = profiles
+                  .filter(
+                    (p) =>
+                      p.id !== me &&
+                      memberIds.has(p.id) &&
+                      (p.username.toLowerCase().includes(mention.query) ||
+                        p.full_name.toLowerCase().includes(mention.query)),
+                  )
+                  .slice(0, 6);
+                const showAll = active.is_group && "todos".startsWith(mention.query);
+                if (options.length === 0 && !showAll) return null;
+                return (
+                  <div className="mb-2 max-h-56 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md">
+                    {showAll && (
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => insertMention("todos")}
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                      >
+                        <span className="font-medium">@todos</span>
+                        <span className="text-xs text-muted-foreground">Notificar todo o grupo</span>
+                      </button>
+                    )}
+                    {options.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => insertMention(p.username)}
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                      >
+                        <Avatar className="size-6">
+                          <AvatarImage src={avatarSrc(p.avatar_url, signed)} alt="" />
+                          <AvatarFallback className="text-[10px]">{initials(p.full_name)}</AvatarFallback>
+                        </Avatar>
+                        <span className="truncate font-medium">{p.full_name}</span>
+                        <span className="truncate text-xs text-muted-foreground">@{p.username}</span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
               <div className="flex gap-2">
                 <Button
                   type="button"
@@ -1871,9 +1916,20 @@ function ConversationsPage() {
                   dir="ltr"
                   autoComplete="off"
                   enterKeyHint="send"
-                  placeholder="Escreva uma mensagem…"
+                  placeholder="Escreva uma mensagem… (@ para marcar alguém)"
                   maxLength={4000}
                   className="min-w-0 flex-1"
+                  onInput={updateMentionState}
+                  onKeyUp={(e) => {
+                    if (e.key === "ArrowLeft" || e.key === "ArrowRight") updateMentionState();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape" && mention) {
+                      e.preventDefault();
+                      setMention(null);
+                    }
+                  }}
+                  onBlur={() => setTimeout(() => setMention(null), 150)}
                 />
                 <Button type="submit" size="icon" aria-label="Enviar" disabled={sending}>
                   <Send className="size-4" />
