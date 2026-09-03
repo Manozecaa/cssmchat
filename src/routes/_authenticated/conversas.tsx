@@ -581,33 +581,35 @@ function ConversationsPage() {
     );
   }
 
-  function hasUnread(c: Conversation) {
+  function seenAtFor(c: Conversation) {
     const mine = members.find((m) => m.conversation_id === c.id && m.user_id === me);
-    const last = lastMessages[c.id];
-    if (!mine || !last || last.sender_id === me) return false;
-    if (c.id === activeId) return false;
+    if (!mine) return null;
     const local = readAt[c.id];
-    const seenAt = Math.max(
+    return Math.max(
       new Date(mine.last_read_at).getTime(),
       local ? new Date(local).getTime() : 0,
     );
+  }
+
+  function hasUnread(c: Conversation) {
+    const last = lastMessages[c.id];
+    if (!last || last.sender_id === me) return false;
+    if (c.id === activeId) return false;
+    const seenAt = seenAtFor(c);
+    if (seenAt === null) return false;
     return new Date(last.created_at).getTime() > seenAt;
   }
 
   function unreadCount(c: Conversation) {
-    const mine = members.find((m) => m.conversation_id === c.id && m.user_id === me);
-    if (!mine || c.id === activeId) return 0;
-    const local = readAt[c.id];
-    const seenAt = Math.max(
-      new Date(mine.last_read_at).getTime(),
-      local ? new Date(local).getTime() : 0,
-    );
-    return messages.filter(
+    if (!hasUnread(c)) return 0;
+    const seenAt = seenAtFor(c)!;
+    const count = recentMessages.filter(
       (m) =>
         m.conversation_id === c.id &&
         m.sender_id !== me &&
         new Date(m.created_at).getTime() > seenAt,
     ).length;
+    return Math.max(count, 1);
   }
 
   function lastMessageTime(c: Conversation) {
