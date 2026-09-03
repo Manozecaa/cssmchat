@@ -31,6 +31,13 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  DEFAULT_PERMISSIONS,
+  can,
+  normalizePermissions,
+  type CategoryPermissions,
+  type PermissionKey,
+} from "@/lib/permissions";
 import { initials } from "@/lib/session";
 import { AVATAR_BUCKET, avatarSrc, signAvatars } from "@/lib/avatars";
 import {
@@ -423,25 +430,24 @@ function ConversationsPage() {
   // Configurações globais definidas no Painel ADM
   const [appSettings, setAppSettings] = useState({
     max_attachment_mb: MAX_FILE_MB,
-    allow_user_groups: true,
   });
+  const [perms, setPerms] = useState<CategoryPermissions>(DEFAULT_PERMISSIONS);
   useEffect(() => {
     void supabase
       .from("app_settings")
       .select("key, value")
-      .in("key", ["max_attachment_mb", "allow_user_groups"])
+      .in("key", ["max_attachment_mb", "category_permissions"])
       .then(({ data }) => {
         if (!data) return;
-        setAppSettings((prev) => {
-          const next = { ...prev };
-          for (const row of data) {
-            if (row.key === "max_attachment_mb" && Number(row.value) > 0) next.max_attachment_mb = Number(row.value);
-            if (row.key === "allow_user_groups") next.allow_user_groups = row.value !== false && row.value !== "false";
+        for (const row of data) {
+          if (row.key === "max_attachment_mb" && Number(row.value) > 0) {
+            setAppSettings((prev) => ({ ...prev, max_attachment_mb: Number(row.value) }));
           }
-          return next;
-        });
+          if (row.key === "category_permissions") setPerms(normalizePermissions(row.value));
+        }
       });
   }, []);
+  const allowed = (key: PermissionKey) => can(perms, myProfile?.category, key);
 
   // Preferências locais de notificação (pop-up e som global)
   const [prefs, setPrefs] = useState<NotifPrefs>(() => readPrefs());
@@ -832,8 +838,8 @@ function ConversationsPage() {
   async function createConversation() {
     if (!me || picked.length === 0) return;
     const isGroup = picked.length > 1;
-    if (isGroup && !appSettings.allow_user_groups && !categoryAtLeast(myProfile?.category, "gestao")) {
-      toast.error("A criação de grupos está restrita a Gestão, Diretoria e Administradores.");
+    if (isGroup && !allowed("create_groups")) {
+      toast.error("Seu grupo de usuário não tem permissão para criar grupos.");
       return;
     }
 
@@ -866,7 +872,7 @@ function ConversationsPage() {
       return;
     }
     // Grupos criados por gestão/diretoria/administração já nascem fixados
-    const autoPin = isGroup && categoryAtLeast(myProfile?.category, "gestao");
+    const autoPin = isGroup && allowed("auto_pin_groups");
     const rows = [
       { conversation_id: convId, user_id: me, is_admin: true, pinned: autoPin },
       ...picked.map((uid) => ({
