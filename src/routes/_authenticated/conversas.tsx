@@ -1648,9 +1648,11 @@ function ConversationsPage() {
                 </>
               )}
 
-              <Button variant="outline" size="sm" onClick={() => setEventOpen(true)}>
-                <CalendarPlus className="size-4" /> Evento
-              </Button>
+              {allowed("create_events") && (
+                <Button variant="outline" size="sm" onClick={() => setEventOpen(true)}>
+                  <CalendarPlus className="size-4" /> Evento
+                </Button>
+              )}
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -1876,7 +1878,7 @@ function ConversationsPage() {
                         p.full_name.toLowerCase().includes(mention.query)),
                   )
                   .slice(0, 6);
-                const showAll = active.is_group && "todos".startsWith(mention.query);
+                const showAll = active.is_group && allowed("mention_all") && "todos".startsWith(mention.query);
                 if (options.length === 0 && !showAll) return null;
                 return (
                   <div className="mb-2 max-h-56 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md">
@@ -1911,15 +1913,17 @@ function ConversationsPage() {
                 );
               })()}
               <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  aria-label="Anexar arquivo"
-                  onClick={() => attachRef.current?.click()}
-                >
-                  <Paperclip className="size-4" />
-                </Button>
+                {allowed("send_attachments") && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label="Anexar arquivo"
+                    onClick={() => attachRef.current?.click()}
+                  >
+                    <Paperclip className="size-4" />
+                  </Button>
+                )}
                 <input
                   ref={attachRef}
                   type="file"
