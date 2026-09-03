@@ -402,7 +402,8 @@ function ConversationsPage() {
           .in(
             "conversation_id",
             toDeliver.map((m) => m.conversation_id),
-          );
+          )
+          .then(() => undefined);
       }
     }
 
@@ -644,7 +645,8 @@ function ConversationsPage() {
       .from("conversation_members")
       .update({ last_read_at: stamp, last_delivered_at: stamp })
       .eq("conversation_id", activeId)
-      .eq("user_id", me);
+      .eq("user_id", me)
+      .then(() => undefined);
   }, [activeId, me, messages, lastMessages]);
 
   function otherMember(c: Conversation) {
