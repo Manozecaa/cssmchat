@@ -527,9 +527,17 @@ function ConversationsPage() {
   // evitando que a notificação "volte" por diferença de relógio.
   useEffect(() => {
     if (!activeId || !me) return;
-    const newest = messages.length > 0 ? messages[messages.length - 1]!.created_at : null;
+    // Só considera mensagens da conversa ativa (o estado pode conter a anterior
+    // por um instante durante a troca de conversa).
+    const own = messages.filter((m) => m.conversation_id === activeId);
+    const newest = own.length > 0 ? own[own.length - 1]!.created_at : null;
+    const lastKnown = lastMessages[activeId]?.created_at ?? null;
     const stamp = new Date(
-      Math.max(Date.now(), newest ? new Date(newest).getTime() : 0),
+      Math.max(
+        Date.now(),
+        newest ? new Date(newest).getTime() : 0,
+        lastKnown ? new Date(lastKnown).getTime() : 0,
+      ),
     ).toISOString();
     setReadAt((prev) =>
       prev[activeId] && new Date(prev[activeId]!) >= new Date(stamp)
@@ -541,7 +549,7 @@ function ConversationsPage() {
       .update({ last_read_at: stamp, last_delivered_at: stamp })
       .eq("conversation_id", activeId)
       .eq("user_id", me);
-  }, [activeId, me, messages]);
+  }, [activeId, me, messages, lastMessages]);
 
   function otherMember(c: Conversation) {
     const other = members.find((m) => m.conversation_id === c.id && m.user_id !== me);
