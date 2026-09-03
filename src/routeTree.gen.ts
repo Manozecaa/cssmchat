@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as Painel_AdmRouteImport } from './routes/Painel_Adm'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 import { Route as AuthenticatedConversasRouteImport } from './routes/_authenticated/conversas'
 
 const IndexRoute = IndexRouteImport.update({
@@ -34,6 +35,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAgendaRoute = AuthenticatedAgendaRouteImport.update({
+  id: '/agenda',
+  path: '/agenda',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedConversasRoute = AuthenticatedConversasRouteImport.update({
   id: '/conversas',
   path: '/conversas',
@@ -44,12 +50,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/Painel_Adm': typeof Painel_AdmRoute
   '/auth': typeof AuthRoute
+  '/agenda': typeof AuthenticatedAgendaRoute
   '/conversas': typeof AuthenticatedConversasRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/Painel_Adm': typeof Painel_AdmRoute
   '/auth': typeof AuthRoute
+  '/agenda': typeof AuthenticatedAgendaRoute
   '/conversas': typeof AuthenticatedConversasRoute
 }
 export interface FileRoutesById {
@@ -58,19 +66,21 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/Painel_Adm': typeof Painel_AdmRoute
   '/auth': typeof AuthRoute
+  '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
   '/_authenticated/conversas': typeof AuthenticatedConversasRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/Painel_Adm' | '/auth' | '/conversas'
+  fullPaths: '/' | '/Painel_Adm' | '/auth' | '/agenda' | '/conversas'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/Painel_Adm' | '/auth' | '/conversas'
+  to: '/' | '/Painel_Adm' | '/auth' | '/agenda' | '/conversas'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/Painel_Adm'
     | '/auth'
+    | '/_authenticated/agenda'
     | '/_authenticated/conversas'
   fileRoutesById: FileRoutesById
 }
@@ -111,6 +121,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/agenda': {
+      id: '/_authenticated/agenda'
+      path: '/agenda'
+      fullPath: '/agenda'
+      preLoaderRoute: typeof AuthenticatedAgendaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/conversas': {
       id: '/_authenticated/conversas'
       path: '/conversas'
@@ -122,10 +139,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
   AuthenticatedConversasRoute: typeof AuthenticatedConversasRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
   AuthenticatedConversasRoute: AuthenticatedConversasRoute,
 }
 
