@@ -6,7 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import logo from "@/assets/cssm-logo-white.png";
+import logoAsset from "@/assets/cssm-logo-azul.jpg.asset.json";
+const logo = logoAsset.url;
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -74,13 +75,15 @@ function AuthPage() {
     >
       <div className="grid w-full max-w-3xl overflow-hidden rounded-2xl shadow-2xl md:grid-cols-2">
         <section className="flex flex-col items-center justify-center bg-login-panel px-8 py-10 text-center md:py-16">
-          <img
-            src={logo}
-            alt="Casa de Saúde Santa Maria"
-            width={512}
-            height={512}
-            className="size-24 object-contain drop-shadow"
-          />
+          <div className="rounded-full bg-white p-2 shadow-lg">
+            <img
+              src={logo}
+              alt="Casa de Saúde Santa Maria"
+              width={512}
+              height={512}
+              className="size-24 object-contain"
+            />
+          </div>
           <h1 className="mt-6 text-2xl font-bold leading-tight">
             Casa de Saúde
             <br />
