@@ -586,8 +586,8 @@ function UserForm({ editing, onDone }: { editing: AppUser | null; onDone: () => 
                 checked={mustChange}
                 onChange={(e) => setMustChange(e.target.checked)}
               />
-              Obrigar o usuário a trocar a senha no próximo acesso (mínimo 8 caracteres, 1 número e
-              1 caractere especial).
+              Obrigar o usuário a trocar a senha no próximo acesso (mínimo 8 caracteres, 1 maiúscula,
+              1 minúscula, 1 número e 1 caractere especial).
             </label>
           </Field>
           {editing && (

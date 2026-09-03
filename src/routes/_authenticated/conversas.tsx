@@ -1714,8 +1714,8 @@ function ForcePasswordDialog({ profileId, onDone }: { profileId: string; onDone:
         <DialogHeader>
           <DialogTitle>Defina uma nova senha</DialogTitle>
           <DialogDescription>
-            Este é o seu primeiro acesso. Por segurança, crie uma senha com mais de 8 caracteres,
-            ao menos 1 número e 1 caractere especial.
+            Este é o seu primeiro acesso. Por segurança, crie uma senha com pelo menos 8 caracteres,
+            incluindo 1 letra maiúscula, 1 letra minúscula, 1 número e 1 caractere especial.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
