@@ -192,6 +192,20 @@ const MESSAGE_COLUMNS =
 
 const MENTION_RE = /@([a-z0-9._-]+)/gi;
 
+/**
+ * Hierarquia de categorias: cada nível herda todas as permissões dos níveis
+ * abaixo. Administradores têm todas as permissões das demais categorias.
+ */
+const CATEGORY_RANK: Record<string, number> = {
+  comum: 0,
+  gestao: 1,
+  diretoria: 2,
+  administrador: 3,
+};
+function categoryAtLeast(category: string | null | undefined, min: keyof typeof CATEGORY_RANK) {
+  return (CATEGORY_RANK[category ?? "comum"] ?? 0) >= CATEGORY_RANK[min]!;
+}
+
 /** Verifica se o texto menciona o usuário (@usuario) ou todos (@todos). */
 function mentionsUser(content: string, username: string | null | undefined) {
   if (!username) return false;
