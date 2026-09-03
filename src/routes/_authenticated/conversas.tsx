@@ -1572,11 +1572,14 @@ function ConversationsPage() {
                             minute: "2-digit",
                           })}
                           {mine &&
-                            (isMessageRead(m) ? (
-                              <CheckCheck className="size-3.5 text-sky-500" />
-                            ) : (
-                              <Check className="size-3.5" />
-                            ))}
+                            (() => {
+                              const st = messageStatus(m);
+                              if (st === "read")
+                                return <CheckCheck className="size-3.5 text-sky-500" aria-label="Lida" />;
+                              if (st === "delivered")
+                                return <CheckCheck className="size-3.5" aria-label="Recebida" />;
+                              return <Check className="size-3.5" aria-label="Enviada" />;
+                            })()}
                         </p>
                         {m.attachment_path && (
                           <div className="mt-1">
