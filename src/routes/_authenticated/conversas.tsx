@@ -576,6 +576,21 @@ function ConversationsPage() {
     return new Date(last.created_at).getTime() > seenAt;
   }
 
+  function unreadCount(c: Conversation) {
+    const mine = members.find((m) => m.conversation_id === c.id && m.user_id === me);
+    if (!mine || c.id === activeId) return 0;
+    const local = readAt[c.id];
+    const seenAt = Math.max(
+      new Date(mine.last_read_at).getTime(),
+      local ? new Date(local).getTime() : 0,
+    );
+    return messages.filter(
+      (m) =>
+        m.conversation_id === c.id &&
+        m.sender_id !== me &&
+        new Date(m.created_at).getTime() > seenAt,
+    ).length;
+  }
 
   function lastMessageTime(c: Conversation) {
     const last = lastMessages[c.id];
@@ -1219,7 +1234,11 @@ function ConversationsPage() {
                         >
                           {conversationLabel(c)}
                         </span>
-                        {unread && <span className="size-2 shrink-0 rounded-full bg-orange-500" />}
+                        {unread && (
+                          <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white">
+                            {unreadCount(c) > 99 ? "99+" : unreadCount(c)}
+                          </span>
+                        )}
                         <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
                           {lastMessageTime(c)}
                         </span>
