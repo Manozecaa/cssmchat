@@ -1,440 +1,266 @@
-# Chat CSSM
-
-Quero que a resposta seja dividida exatamente nesta ordem:
-
- Visão Geral
-
- Mapa Mental Completo
-
- Explicação de cada módulo
-
- Arquitetura Geral
-
- Arquitetura para Lovable
-
- Banco de Dados
-
- APIs
-
- Fluxos do Sistema
-
- Estrutura de Pastas
-
- Roadmap
-
- Melhorias Futuras
-
- Riscos Técnicos
-
- Tecnologias recomendadas
-
- Próximos passos
-
-1. Visão Geral
-
-Criar um resumo executivo contendo:
-
- objetivo do sistema;
-
- público-alvo;
-
- benefícios;
-
- requisitos funcionais;
-
- requisitos não funcionais;
-
- premissas;
-
- limitações do MVP;
-
- estratégia de evolução para produção.
-
-2. Mapa Mental
-
-Criar um mapa mental extremamente detalhado utilizando Markdown com listas hierárquicas.
-
-Cada módulo deve possuir seus próprios submódulos.
-
-O nível de detalhamento deve ser equivalente ao planejamento de um software corporativo.
-
-3. Chat Corporativo
-
-Descrever detalhadamente:
-
-Conversas
-
- conversa privada;
-
- grupos;
-
- grupos de transmissão;
-
- departamentos;
-
- equipes;
-
- histórico;
-
- pesquisa;
-
- favoritos;
-
- mensagens fixadas;
-
- responder;
-
- encaminhar;
-
- editar;
-
- excluir;
-
- reações;
-
- emojis;
-
- menções;
-
- notificações.
-
-Arquivos
-
- imagens;
-
- PDF;
-
- Word;
-
- Excel;
-
- anexos;
-
- download;
-
- preview;
-
- drag-and-drop.
-
-Comunicação em tempo real
-
- WebSocket;
-
- indicador de digitação;
-
- usuário online;
-
- confirmação de envio;
-
- confirmação de entrega;
-
- confirmação de leitura.
-
-4. Painel Administrativo
-
-Este painel deve ser totalmente separado do chat.
-
-Criar módulos completos para:
-
-Usuários
-
- criar;
-
- editar;
-
- excluir;
-
- bloquear;
-
- desbloquear;
-
- redefinir senha;
-
- importar usuários;
-
- exportar usuários.
-
-Organização
-
- departamentos;
-
- setores;
-
- cargos;
-
- equipes;
-
- unidades.
-
-Permissões
-
- RBAC;
-
- perfis;
-
- funções;
-
- permissões específicas.
-
-5. Auditoria
-
-Como este é um sistema corporativo interno, o projeto deve prever funcionalidades de auditoria compatíveis com políticas internas e conformidade aplicável.
-
-Detalhar:
-
- auditoria de mensagens;
-
- auditoria de anexos;
-
- auditoria de imagens;
-
- histórico de alterações;
-
- logs de acesso;
-
- exportação de auditorias;
-
- filtros avançados.
-
-Explique também as alternativas de arquitetura para permitir auditoria administrativa, os impactos sobre privacidade e segurança e como comunicar claramente essas políticas aos usuários do sistema.
-
-6. Segurança
-
-Descrever:
-
- autenticação;
-
- autorização;
-
- MFA;
-
- JWT;
-
- Refresh Token;
-
- TLS;
-
- criptografia em trânsito;
-
- criptografia em repouso;
-
- gestão de chaves;
-
- backup;
-
- recuperação de desastre;
-
- proteção contra XSS;
-
- proteção contra CSRF;
-
- proteção contra SQL Injection;
-
- Rate Limit;
-
- CSP;
-
- logs de segurança.
-
-7. Banco de Dados
-
-Projetar todas as entidades.
-
-Exemplo:
-
- usuários;
-
- mensagens;
-
- grupos;
-
- broadcast;
-
- departamentos;
-
- permissões;
-
- sessões;
-
- auditoria;
-
- logs;
-
- arquivos;
-
- imagens;
-
- notificações;
-
- configurações.
-
-Explicar relacionamentos e responsabilidades de cada entidade.
-
-8. APIs
-
-Criar todas as APIs REST necessárias.
-
-Separar por módulos.
-
-Exemplo:
-
-/login
-
-/users
-
-/messages
-
-/groups
-
-/audit
-
-/files
-
-/notifications
-
-/settings
-
-Descrever cada endpoint.
-
-9. Arquitetura
-
-Gerar diagramas ASCII mostrando:
-
- arquitetura geral;
-
- frontend;
-
- backend;
-
- banco;
-
- autenticação;
-
- WebSocket;
-
- armazenamento de arquivos;
-
- auditoria;
-
- upload de arquivos;
-
- fluxo de mensagens.
-
-10. Estrutura do Projeto
-
-Criar uma árvore completa de diretórios para um projeto organizado e escalável.
-
-11. Roadmap
-
-Separar em:
-
-MVP
-
-Versão 2
-
-Versão 3
-
-12. Melhorias Futuras
-
-Adicionar:
-
- chamadas de voz;
-
- chamadas de vídeo;
-
- IA integrada;
-
- chatbot interno;
-
- integração com ERP;
-
- Active Directory;
-
- LDAP;
-
- Microsoft 365;
-
- Google Workspace;
-
- SSO;
-
- dashboards;
-
- analytics;
-
- workflow interno.
-
-13. Tecnologias
-
-Considerando que o projeto será desenvolvido inicialmente no Lovable, proponha uma stack moderna, justificando cada escolha. Se alguma limitação da plataforma exigir adaptações, explique-as e apresente alternativas para uma futura migração para um ambiente de produção.
-
-14. Boas Práticas
-
-Aplicar:
-
- Clean Architecture;
-
- SOLID;
-
- DDD quando fizer sentido;
-
- Clean Code;
-
- documentação;
-
- testes;
-
- observabilidade;
-
- monitoramento;
-
- CI/CD;
-
- versionamento.
-
-15. Nível de Detalhamento
-
-A resposta deve ser extremamente detalhada.
-
-Não economize explicações.
-
-Sempre que possível:
-
- gerar tabelas;
-
- diagramas ASCII;
-
- listas;
-
- fluxogramas;
-
- mapas mentais;
-
- exemplos;
-
- recomendações.
-
-O resultado deve parecer uma documentação produzida por uma equipe de arquitetura de software enterprise.
-
-This project was built with [Lovable](https://lovable.dev).
-
-**Live app**: https://cssmchat.lovable.app
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/8de85c40-f05c-4937-a293-2ca20e819b28).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+<p align="center">
+  <img src="public/favicon.png" alt="Logo CSSM" width="96" height="96" />
+</p>
+
+<h1 align="center">Intrachat CSSM</h1>
+
+<p align="center">
+  Chat corporativo interno da Casa de Saúde Santa Maria — mensagens em tempo real, grupos, agenda de eventos e painel administrativo com auditoria.
+</p>
+
+<p align="center">
+  <img alt="TanStack Start" src="https://img.shields.io/badge/TanStack%20Start-v1-FF4154?logo=react&logoColor=white" />
+  <img alt="React 19" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" />
+  <img alt="Tailwind CSS v4" src="https://img.shields.io/badge/Tailwind%20CSS-v4-06B6D4?logo=tailwindcss&logoColor=white" />
+  <img alt="Lovable Cloud" src="https://img.shields.io/badge/Backend-Lovable%20Cloud-8B5CF6" />
+  <img alt="Licença" src="https://img.shields.io/badge/licen%C3%A7a-uso%20interno-lightgrey" />
+</p>
+
+---
+
+## Sumário
+
+- [Visão geral](#visão-geral)
+- [Funcionalidades](#funcionalidades)
+- [Stack](#stack)
+- [Arquitetura](#arquitetura)
+- [Estrutura de pastas](#estrutura-de-pastas)
+- [Banco de dados](#banco-de-dados)
+- [Começando](#começando)
+- [Variáveis de ambiente](#variáveis-de-ambiente)
+- [Scripts](#scripts)
+- [Perfis e permissões](#perfis-e-permissões)
+- [Segurança](#segurança)
+- [Roadmap](#roadmap)
+- [Contribuindo](#contribuindo)
+- [Licença](#licença)
+
+---
+
+## Visão geral
+
+O **Intrachat CSSM** é uma aplicação web responsiva (desktop, tablet e celular) para comunicação interna. Não há cadastro público: todas as contas são criadas por administradores em um painel separado (`/Painel_Adm`), e o acesso dos colaboradores é feito por **nome de usuário e senha** na página inicial.
+
+| Área | Rota | Quem acessa |
+| --- | --- | --- |
+| Login | `/` | Colaboradores |
+| Conversas | `/conversas` | Colaboradores autenticados |
+| Agenda | `/agenda` | Colaboradores autenticados |
+| Painel administrativo | `/Painel_Adm` | Administradores (login próprio) |
+
+## Funcionalidades
+
+### Chat
+- Conversas diretas e em grupo, com deduplicação de conversas 1:1
+- Atualização em tempo real (Realtime) + polling de 2 s como fallback
+- Recibos de entrega e leitura: `✓` enviada · `✓✓` recebida · `✓✓ azul` lida
+- Contador de não lidas por conversa e no título da aba do navegador
+- Menções `@usuario` e `@todos` (menções ignoram silenciamento)
+- Anexos de documentos e imagens com pré-visualização (limite configurável)
+- Fixar, silenciar (por tempo), som personalizado e ocultar conversas
+- Grupos: foto, administradores, "somente admins enviam", adicionar/remover membros com mensagens de sistema
+- Prévia da última mensagem, status do usuário (ativo, ocupado, em reunião, ausente), setor e cargo
+- ID da conversa copiável no cabeçalho
+- Pop-up e som de notificação configuráveis no perfil
+- Conversas vazias só aparecem para o destinatário após a primeira mensagem
+
+### Agenda
+- Calendário pessoal de eventos/reuniões
+- Eventos criados no chat com seleção de participantes (todos do grupo, específicos ou contatos externos)
+- Criador gerencia participantes
+
+### Painel administrativo (`/Painel_Adm`)
+- Login próprio (padrão inicial `Admin` / `Admin`, alterável) com sessão `httpOnly`
+- Administrador principal e administradores secundários
+- Cadastro de usuários (nome, usuário, CPF, data de nascimento, setor, cargo, categoria, descrição, troca obrigatória de senha no 1º acesso)
+- Cadastro de setores e dashboard com contador por setor
+- Matriz de permissões por categoria de usuário
+- Configurações globais (tempo de sessão, limite de anexos, nome do sistema…)
+- Auditoria de conversas com filtro por ID e exportação protegida por confirmação de senha
+
+## Stack
+
+| Camada | Tecnologia |
+| --- | --- |
+| Framework | [TanStack Start](https://tanstack.com/start) v1 (React 19, SSR, server functions) |
+| Build | Vite 7 · Bun |
+| UI | Tailwind CSS v4 · shadcn/ui · Radix UI · lucide-react · sonner |
+| Backend | Lovable Cloud (Postgres, Auth, Realtime, Storage, RLS) |
+| Linguagem | TypeScript |
+| Qualidade | ESLint · Prettier |
+
+## Arquitetura
+
+```text
+┌──────────────────────────────┐
+│  Navegador (React 19 / SSR)  │
+│  /  /conversas  /agenda      │
+│  /Painel_Adm                 │
+└──────────┬───────────┬───────┘
+           │           │
+   supabase-js (RLS)   │ createServerFn (server functions)
+           │           │  · autenticação do painel ADM
+           ▼           ▼  · criação de usuários / setores
+┌──────────────────────────────┐  · exportação e auditoria
+│        Lovable Cloud         │
+│  Postgres + RLS  · Auth      │
+│  Realtime        · Storage   │
+│  (avatars, chat-files)       │
+└──────────────────────────────┘
 ```
+
+- **Cliente → banco**: leituras e escritas do chat vão direto pelo cliente, protegidas por políticas RLS por participante.
+- **Server functions** (`src/lib/*.functions.ts`): operações privilegiadas do painel (criar usuário, redefinir senha, exportar conversas). Segredos só são lidos no servidor.
+- **Autenticação de colaboradores**: e-mails sintéticos internos (`usuario@cssm.local`) para compatibilizar login por nome de usuário com o provedor de auth.
+
+## Estrutura de pastas
+
+```text
+.
+├── public/                     # favicon e arquivos estáticos
+├── src/
+│   ├── assets/                 # logo e imagens
+│   ├── components/
+│   │   ├── ui/                 # componentes shadcn/ui
+│   │   └── AvatarCropper.tsx   # recorte de foto de perfil
+│   ├── hooks/
+│   │   ├── use-mobile.tsx
+│   │   └── use-session-timeout.ts   # encerramento por inatividade
+│   ├── integrations/supabase/  # clientes gerados (não editar)
+│   ├── lib/
+│   │   ├── admin.functions.ts  # server functions do painel ADM
+│   │   ├── permissions.ts      # categorias e matriz de permissões
+│   │   ├── session.ts          # sessão do colaborador
+│   │   ├── avatars.ts · chat-files.ts · sounds.ts
+│   ├── routes/
+│   │   ├── __root.tsx          # layout raiz
+│   │   ├── index.tsx           # login
+│   │   ├── Painel_Adm.tsx      # painel administrativo
+│   │   └── _authenticated/
+│   │       ├── route.tsx       # guarda de autenticação
+│   │       ├── conversas.tsx   # chat
+│   │       └── agenda.tsx      # calendário
+│   ├── styles.css              # tokens de design (Tailwind v4)
+│   └── router.tsx · start.ts · server.ts
+├── supabase/
+│   ├── config.toml
+│   └── migrations/             # histórico do schema (SQL)
+├── roadmap.md
+└── package.json
+```
+
+## Banco de dados
+
+Principais tabelas (todas com RLS habilitado):
+
+| Tabela | Descrição |
+| --- | --- |
+| `profiles` | Dados do colaborador: nome, usuário, CPF, nascimento, setor, cargo, categoria, status, foto, `must_change_password`, `is_active` |
+| `sectors` | Setores da instituição |
+| `conversations` | Conversas diretas e grupos (`is_group`, `avatar_path`, `only_admins_send`) |
+| `conversation_members` | Participação: admin, pode enviar, fixado, silenciado, som, `last_read_at`, `last_delivered_at`, `hidden_at` |
+| `messages` | Mensagens, anexos, `is_system`, `deleted_at` |
+| `conversation_events` | Eventos criados dentro de uma conversa |
+| `calendar_events` / `calendar_event_participants` | Agenda pessoal e participantes |
+| `app_settings` | Configurações globais e `category_permissions` (JSON) |
+| `admin_credentials` | Credenciais do painel ADM (hash SHA-256) |
+
+Buckets de storage: `avatars` (fotos de perfil/grupos) e `chat-files` (anexos).
+
+As migrações ficam em `supabase/migrations/` e são a fonte de verdade do schema.
+
+## Começando
+
+### Pré-requisitos
+- [Bun](https://bun.sh) ≥ 1.1 (ou Node.js ≥ 20 com npm)
+- Projeto Lovable Cloud (ou instância Supabase) com as migrações aplicadas
+
+### Instalação
+
+```bash
+git clone <url-do-repositorio>
+cd <nome-do-repositorio>
+bun install          # ou npm install
+bun run dev          # ou npm run dev
+```
+
+A aplicação sobe em `http://localhost:8080`.
+
+### Primeiro acesso
+1. Abra `/Painel_Adm` e entre com `Admin` / `Admin`.
+2. Altere a senha do administrador nas configurações do painel.
+3. Cadastre setores e usuários. Marque **trocar senha no primeiro acesso** quando apropriado.
+4. Os colaboradores entram em `/` com usuário e senha.
+
+## Variáveis de ambiente
+
+Gerenciadas automaticamente pelo Lovable Cloud (arquivo `.env`, não versionado):
+
+| Variável | Uso |
+| --- | --- |
+| `VITE_SUPABASE_URL` | URL do backend (cliente) |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Chave pública (cliente) |
+| `VITE_SUPABASE_PROJECT_ID` | Identificador do projeto |
+| `SUPABASE_SERVICE_ROLE_KEY` | Somente servidor — nunca expor ao cliente |
+
+> Nunca faça commit de chaves secretas. Chaves publicáveis são seguras no cliente; chaves de serviço só existem no ambiente do servidor.
+
+## Scripts
+
+| Comando | Descrição |
+| --- | --- |
+| `bun run dev` | Servidor de desenvolvimento |
+| `bun run build` | Build de produção |
+| `bun run preview` | Pré-visualiza o build |
+| `bun run lint` | ESLint |
+| `bun run format` | Prettier |
+| `bunx tsgo --noEmit` | Verificação de tipos |
+
+## Perfis e permissões
+
+Categorias hierárquicas: `comum` < `gestao` < `diretoria` < `administrador`. Cada categoria tem permissões editáveis no painel (**Cadastros → Grupos de usuário**); administradores sempre têm todas.
+
+| Permissão | Descrição |
+| --- | --- |
+| `create_groups` | Criar conversas em grupo |
+| `auto_pin_groups` | Grupos criados nascem fixados para todos os membros |
+| `create_events` | Agendar eventos nas conversas |
+| `send_attachments` | Enviar documentos e imagens |
+| `mention_all` | Usar `@todos` |
+| `change_status` | Alterar o próprio status |
+| `change_avatar` | Trocar a própria foto |
+
+## Segurança
+
+- Sem cadastro público; contas criadas apenas por administradores
+- RLS em todas as tabelas; acesso a mensagens restrito a participantes
+- Painel ADM com sessão `httpOnly`, credenciais com hash e confirmação de senha para exportações
+- Política de senha no primeiro acesso: mínimo 8 caracteres, maiúscula, minúscula, número e caractere especial
+- Encerramento de sessão por inatividade (padrão 1 h, configurável); "Manter conectado" desativa por dispositivo
+- Exclusão de conversa pelo usuário é apenas local (`hidden_at`); o histórico permanece disponível na auditoria
+- Anexos com limite de tamanho configurável e URLs assinadas
+
+## Roadmap
+
+Consulte [`roadmap.md`](roadmap.md) para os itens em andamento. Ideias futuras:
+
+- [ ] Busca global em mensagens
+- [ ] Notificações push (PWA)
+- [ ] Chamadas de voz/vídeo
+- [ ] Integração com diretório institucional (LDAP/AD)
+- [ ] Retenção e arquivamento automático de mensagens
+
+## Contribuindo
+
+1. Crie uma branch a partir de `main`: `git checkout -b feat/minha-funcionalidade`
+2. Siga o padrão de commits [Conventional Commits](https://www.conventionalcommits.org/pt-br/) (`feat:`, `fix:`, `docs:`, `refactor:`…)
+3. Rode `bun run lint` e `bunx tsgo --noEmit` antes de abrir o PR
+4. Alterações de banco devem vir como nova migração em `supabase/migrations/` (com `GRANT` + RLS)
+5. Abra um Pull Request descrevendo o problema, a solução e como testar
+
+Veja [CONTRIBUTING.md](CONTRIBUTING.md) para detalhes.
+
+## Licença
+
+Software de uso interno da Casa de Saúde Santa Maria. Todos os direitos reservados. A redistribuição fora da instituição não é permitida sem autorização.
