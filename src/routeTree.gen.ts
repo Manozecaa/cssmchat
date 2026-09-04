@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as Painel_AdmRouteImport } from './routes/Painel_Adm'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
-import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 import { Route as AuthenticatedConversasRouteImport } from './routes/_authenticated/conversas'
 
@@ -30,11 +29,6 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthenticatedAgendaRoute = AuthenticatedAgendaRouteImport.update({
   id: '/agenda',
   path: '/agenda',
@@ -49,14 +43,12 @@ const AuthenticatedConversasRoute = AuthenticatedConversasRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/Painel_Adm': typeof Painel_AdmRoute
-  '/auth': typeof AuthRoute
   '/agenda': typeof AuthenticatedAgendaRoute
   '/conversas': typeof AuthenticatedConversasRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/Painel_Adm': typeof Painel_AdmRoute
-  '/auth': typeof AuthRoute
   '/agenda': typeof AuthenticatedAgendaRoute
   '/conversas': typeof AuthenticatedConversasRoute
 }
@@ -65,21 +57,19 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/Painel_Adm': typeof Painel_AdmRoute
-  '/auth': typeof AuthRoute
   '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
   '/_authenticated/conversas': typeof AuthenticatedConversasRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/Painel_Adm' | '/auth' | '/agenda' | '/conversas'
+  fullPaths: '/' | '/Painel_Adm' | '/agenda' | '/conversas'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/Painel_Adm' | '/auth' | '/agenda' | '/conversas'
+  to: '/' | '/Painel_Adm' | '/agenda' | '/conversas'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/Painel_Adm'
-    | '/auth'
     | '/_authenticated/agenda'
     | '/_authenticated/conversas'
   fileRoutesById: FileRoutesById
@@ -88,7 +78,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   Painel_AdmRoute: typeof Painel_AdmRoute
-  AuthRoute: typeof AuthRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -112,13 +101,6 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/agenda': {
@@ -155,7 +137,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   Painel_AdmRoute: Painel_AdmRoute,
-  AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
