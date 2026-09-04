@@ -425,7 +425,7 @@ function ConversationsPage() {
 
   useSessionTimeout(() => {
     toast.info("Sessão encerrada por inatividade.");
-    navigate({ to: "/auth", replace: true });
+    navigate({ to: "/", replace: true });
   });
 
   // Configurações globais definidas no Painel ADM
@@ -1108,7 +1108,7 @@ function ConversationsPage() {
 
   async function signOut() {
     await supabase.auth.signOut();
-    navigate({ to: "/auth", replace: true });
+    navigate({ to: "/", replace: true });
   }
 
   const active = conversations.find((c) => c.id === activeId) ?? null;
