@@ -48,7 +48,7 @@ function AuthPage() {
     setBusy(true);
     const normalized = username.trim().toLowerCase();
     const { error } = await supabase.auth.signInWithPassword({
-      email: `${normalized}@nexo.local`,
+      email: `${normalized}@cssm.local`,
       password,
     });
     setBusy(false);
@@ -57,7 +57,7 @@ function AuthPage() {
       return;
     }
     try {
-      window.localStorage.setItem("nexo:remember", remember ? "1" : "0");
+      window.localStorage.setItem("cssm:remember", remember ? "1" : "0");
     } catch {
       /* ignore */
     }

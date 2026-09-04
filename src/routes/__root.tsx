@@ -80,12 +80,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Nexo — Chat corporativo seguro" },
+      { title: "CSSM — Chat corporativo seguro" },
       {
         name: "description",
         content: "Chat corporativo em tempo real com controle de acesso por participante.",
       },
-      { property: "og:title", content: "Nexo — Chat corporativo seguro" },
+      { property: "og:title", content: "CSSM — Chat corporativo seguro" },
       {
         property: "og:description",
         content: "Chat corporativo em tempo real com controle de acesso por participante.",

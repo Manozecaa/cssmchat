@@ -88,13 +88,13 @@ import {
 export const Route = createFileRoute("/_authenticated/conversas")({
   head: () => ({
     meta: [
-      { title: "Conversas — Nexo Chat Corporativo" },
+      { title: "Conversas — CSSM Chat Corporativo" },
       {
         name: "description",
         content:
           "Converse em tempo real com sua equipe: mensagens diretas, grupos, anexos, eventos e histórico completo.",
       },
-      { property: "og:title", content: "Conversas — Nexo Chat Corporativo" },
+      { property: "og:title", content: "Conversas — CSSM Chat Corporativo" },
       {
         property: "og:description",
         content: "Mensagens diretas e em grupo em tempo real para sua equipe.",
@@ -175,7 +175,7 @@ type ChatEvent = {
 };
 
 type NotifPrefs = { popup: boolean; soundMuted: boolean };
-const PREFS_KEY = "nexo:notif-prefs";
+const PREFS_KEY = "cssm:notif-prefs";
 function readPrefs(): NotifPrefs {
   if (typeof window === "undefined") return { popup: true, soundMuted: false };
   try {
@@ -795,7 +795,7 @@ function ConversationsPage() {
     if (typeof document === "undefined") return;
     const unreadList = visibleConversations.filter((c) => hasUnread(c));
     if (unreadList.length === 0) {
-      document.title = "Conversas — Nexo";
+      document.title = "Conversas — CSSM";
       return;
     }
     const newest = unreadList.reduce((acc, c) =>
@@ -1138,7 +1138,7 @@ function ConversationsPage() {
         )}
       >
         <div className="flex items-center justify-between px-4 py-4">
-          <span className="text-lg font-semibold tracking-tight">Nexo</span>
+          <span className="text-lg font-semibold tracking-tight">CSSM</span>
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"

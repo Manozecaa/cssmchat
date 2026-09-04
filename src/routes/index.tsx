@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Nexo — Chat corporativo seguro em tempo real" },
+      { title: "CSSM — Chat corporativo seguro em tempo real" },
       {
         name: "description",
         content:
-          "Nexo é o chat corporativo da sua empresa: conversas diretas e em grupo em tempo real, com controle de acesso por participante e histórico persistente.",
+          "CSSM é o chat corporativo da sua empresa: conversas diretas e em grupo em tempo real, com controle de acesso por participante e histórico persistente.",
       },
-      { property: "og:title", content: "Nexo — Chat corporativo seguro em tempo real" },
+      { property: "og:title", content: "CSSM — Chat corporativo seguro em tempo real" },
       {
         property: "og:description",
         content:
@@ -46,7 +46,7 @@ function Index() {
   return (
     <main className="min-h-screen bg-background">
       <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
-        <span className="text-lg font-semibold tracking-tight">Nexo</span>
+        <span className="text-lg font-semibold tracking-tight">CSSM</span>
         <Button asChild size="sm">
           <Link to="/auth">Entrar</Link>
         </Button>
