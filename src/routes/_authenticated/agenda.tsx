@@ -35,12 +35,12 @@ import {
 export const Route = createFileRoute("/_authenticated/agenda")({
   head: () => ({
     meta: [
-      { title: "Minha agenda — Nexo Chat Corporativo" },
+      { title: "Minha agenda — CSSM Chat Corporativo" },
       {
         name: "description",
         content: "Calendário pessoal com eventos e reuniões marcados com você e sua equipe.",
       },
-      { property: "og:title", content: "Minha agenda — Nexo Chat Corporativo" },
+      { property: "og:title", content: "Minha agenda — CSSM Chat Corporativo" },
       { property: "og:description", content: "Seus eventos e reuniões em um só lugar." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

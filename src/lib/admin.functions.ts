@@ -173,7 +173,7 @@ export const adminCreateUser = createServerFn({ method: "POST" })
     if (existing) return { ok: false as const, message: "Este nome de usuário já existe." };
 
     const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
-      email: `${username}@nexo.local`,
+      email: `${username}@cssm.local`,
       password: data.password,
       email_confirm: true,
       user_metadata: {
@@ -237,7 +237,7 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
 
     const fullName = data.fullName.trim() || username;
     const payload: Record<string, unknown> = {
-      email: `${username}@nexo.local`,
+      email: `${username}@cssm.local`,
       user_metadata: { username, full_name: fullName },
     };
     if (data.password) payload["password"] = data.password;
@@ -259,7 +259,7 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
     } = {
       username,
       full_name: fullName,
-      email: `${username}@nexo.local`,
+      email: `${username}@cssm.local`,
       description: data.description?.trim() || null,
       sector: data.sector?.trim() || null,
       cpf: data.cpf?.trim() || null,
@@ -565,7 +565,7 @@ const DEFAULT_SETTINGS: GlobalSettings = {
   session_timeout_minutes: 60,
   max_attachment_mb: 20,
   allow_user_groups: true,
-  system_name: "Nexo",
+  system_name: "CSSM",
 };
 
 export const adminGetSettings = createServerFn({ method: "GET" }).handler(async () => {

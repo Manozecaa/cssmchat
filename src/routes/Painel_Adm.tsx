@@ -69,16 +69,16 @@ export const Route = createFileRoute("/Painel_Adm")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Painel Administrativo — Nexo" },
+      { title: "Painel Administrativo — CSSM" },
       {
         name: "description",
         content:
-          "Área restrita de administração do Nexo: cadastro de usuários corporativos e gestão das credenciais do painel.",
+          "Área restrita de administração do CSSM: cadastro de usuários corporativos e gestão das credenciais do painel.",
       },
-      { property: "og:title", content: "Painel Administrativo — Nexo" },
+      { property: "og:title", content: "Painel Administrativo — CSSM" },
       {
         property: "og:description",
-        content: "Área restrita de administração do chat corporativo Nexo.",
+        content: "Área restrita de administração do chat corporativo CSSM.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

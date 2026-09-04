@@ -15,7 +15,7 @@ export function useSessionTimeout(onExpire: () => void) {
   useEffect(() => {
     // "Manter conectado" na tela de login desativa o encerramento por inatividade.
     try {
-      if (window.localStorage.getItem("nexo:remember") === "1") return;
+      if (window.localStorage.getItem("cssm:remember") === "1") return;
     } catch {
       /* ignore */
     }
