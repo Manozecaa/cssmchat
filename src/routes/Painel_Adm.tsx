@@ -190,13 +190,18 @@ function LoginScreen({ onSuccess }: { onSuccess: (username: string, role: Role) 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const res = await adminLogin({ data: { username, password } });
-    setBusy(false);
-    if (!res.ok) {
-      toast.error("Usuário ou senha inválidos.");
-      return;
+    try {
+      const res = await adminLogin({ data: { username, password } });
+      if (!res.ok) {
+        toast.error("Usuário ou senha inválidos.");
+        return;
+      }
+      onSuccess(res.username, res.role === "primary" ? "primary" : "secondary");
+    } catch {
+      toast.error("Não foi possível entrar. Tente novamente.");
+    } finally {
+      setBusy(false);
     }
-    onSuccess(res.username, res.role === "primary" ? "primary" : "secondary");
   }
 
   return (
@@ -430,6 +435,7 @@ function Shell({
               key={editing?.id ?? "new"}
               editing={editing}
               sectors={sectors}
+              onSessionExpired={onLogout}
               onDone={() => {
                 setEditing(null);
                 setView("usuarios");
@@ -611,10 +617,12 @@ function UserForm({
   editing,
   sectors,
   onDone,
+  onSessionExpired,
 }: {
   editing: AppUser | null;
   sectors: Sector[];
   onDone: () => void;
+  onSessionExpired: () => void;
 }) {
   const NONE = "__none__";
   const [fullName, setFullName] = useState(editing?.full_name ?? "");
@@ -669,29 +677,40 @@ function UserForm({
       return;
     }
     setBusy(true);
-    const common = {
-      username,
-      fullName,
-      sector,
-      description,
-      category,
-      cpf,
-      birthDate,
-      mustChangePassword: mustChange,
-    };
-    const res = editing
-      ? await adminUpdateUser({
-          data: { userId: editing.id, isActive, ...common, ...(password ? { password } : {}) },
-        })
-      : await adminCreateUser({ data: { ...common, password } });
-    setBusy(false);
-    if (!res.ok) {
-      toast.error(res.message);
-      return;
+    try {
+      const common = {
+        username,
+        fullName,
+        sector,
+        description,
+        category,
+        cpf,
+        birthDate,
+        mustChangePassword: mustChange,
+      };
+      const res = editing
+        ? await adminUpdateUser({
+            data: { userId: editing.id, isActive, ...common, ...(password ? { password } : {}) },
+          })
+        : await adminCreateUser({ data: { ...common, password } });
+      if (!res.ok) {
+        toast.error(res.message);
+        return;
+      }
+      toast.success(res.message);
+      clear();
+      onDone();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes("Não autorizado")) {
+        toast.error("Sua sessão administrativa expirou. Entre novamente.");
+        onSessionExpired();
+      } else {
+        toast.error("Não foi possível salvar o usuário. Tente novamente.");
+      }
+    } finally {
+      setBusy(false);
     }
-    toast.success(res.message);
-    clear();
-    onDone();
   }
 
   const labelCls = "text-sm text-foreground";
