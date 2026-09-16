@@ -16,6 +16,7 @@ import {
   FileText,
   Image as ImageIcon,
   LogOut,
+  Moon,
   MoreVertical,
   Paperclip,
   Pin,
@@ -24,6 +25,7 @@ import {
   Send,
   Settings,
   Shield,
+  Sun,
   Trash2,
   Upload,
   UserMinus,
@@ -174,17 +176,19 @@ type ChatEvent = {
   duration_minutes: number;
 };
 
-type NotifPrefs = { popup: boolean; soundMuted: boolean };
+type ThemeMode = "light" | "dark";
+type NotifPrefs = { popup: boolean; soundMuted: boolean; theme: ThemeMode };
 const PREFS_KEY = "cssm:notif-prefs";
 function readPrefs(): NotifPrefs {
-  if (typeof window === "undefined") return { popup: true, soundMuted: false };
+  const defaults: NotifPrefs = { popup: true, soundMuted: false, theme: "light" };
+  if (typeof window === "undefined") return defaults;
   try {
     const raw = window.localStorage.getItem(PREFS_KEY);
-    if (raw) return { popup: true, soundMuted: false, ...(JSON.parse(raw) as Partial<NotifPrefs>) };
+    if (raw) return { ...defaults, ...(JSON.parse(raw) as Partial<NotifPrefs>) };
   } catch {
     /* ignore */
   }
-  return { popup: true, soundMuted: false };
+  return defaults;
 }
 function writePrefs(p: NotifPrefs) {
   try {
@@ -450,7 +454,7 @@ function ConversationsPage() {
   }, []);
   const allowed = (key: PermissionKey) => can(perms, myProfile?.category, key);
 
-  // Preferências locais de notificação (pop-up e som global)
+  // Preferências locais de notificação e aparência
   const [prefs, setPrefs] = useState<NotifPrefs>(() => readPrefs());
   const prefsRef = useRef(prefs);
   prefsRef.current = prefs;
@@ -466,6 +470,11 @@ function ConversationsPage() {
     setPrefs(next);
     writePrefs(next);
   }
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", prefs.theme === "dark");
+    document.documentElement.style.colorScheme = prefs.theme;
+  }, [prefs.theme]);
 
   // Notificação global: som (respeita silenciar geral e por conversa) + pop-up
   useEffect(() => {
@@ -2600,7 +2609,7 @@ function UserSettingsDialog({
           <DialogHeader>
             <DialogTitle>Configurações do usuário</DialogTitle>
             <DialogDescription>
-              Gerencie sua foto de perfil, seu status e sua senha de acesso.
+              Gerencie sua foto, aparência, status, notificações e senha de acesso.
             </DialogDescription>
           </DialogHeader>
 
@@ -2679,6 +2688,28 @@ function UserSettingsDialog({
               {profile.description}
             </p>
           )}
+
+          <div className="space-y-3 border-t border-border pt-4">
+            <Label>Aparência</Label>
+            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Tema do chat">
+              <Button
+                type="button"
+                variant={prefs.theme === "light" ? "default" : "outline"}
+                onClick={() => onPrefs({ theme: "light" })}
+                aria-pressed={prefs.theme === "light"}
+              >
+                <Sun className="size-4" /> Claro
+              </Button>
+              <Button
+                type="button"
+                variant={prefs.theme === "dark" ? "default" : "outline"}
+                onClick={() => onPrefs({ theme: "dark" })}
+                aria-pressed={prefs.theme === "dark"}
+              >
+                <Moon className="size-4" /> Escuro
+              </Button>
+            </div>
+          </div>
 
           <div className="space-y-3 border-t border-border pt-4">
             <Label>Notificações</Label>
