@@ -1161,6 +1161,15 @@ function ConversationsPage() {
             <Button
               variant="ghost"
               size="icon"
+              onClick={() => updatePrefs({ theme: prefs.theme === "dark" ? "light" : "dark" })}
+              aria-label={prefs.theme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
+              title={prefs.theme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
+            >
+              {prefs.theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setSettingsOpen(true)}
               aria-label="Configurações do usuário"
             >
