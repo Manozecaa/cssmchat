@@ -1671,6 +1671,17 @@ function ConversationsPage() {
                               />
                               Pode enviar
                             </label>
+                            {m.user_id !== me && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-7 text-destructive hover:text-destructive"
+                                aria-label={`Remover ${profileMap[m.user_id]?.full_name ?? "participante"} do grupo`}
+                                onClick={() => removeMember(active.id, m.user_id)}
+                              >
+                                <UserMinus className="size-4" />
+                              </Button>
+                            )}
                           </div>
                         ))}
                       </div>
