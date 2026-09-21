@@ -2,6 +2,24 @@ import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 const DEFAULT_MINUTES = 60;
+const LAST_ACTIVITY_KEY = "cssm:last-activity";
+
+function readLastActivity() {
+  try {
+    const saved = Number(window.localStorage.getItem(LAST_ACTIVITY_KEY));
+    return Number.isFinite(saved) && saved > 0 ? saved : Date.now();
+  } catch {
+    return Date.now();
+  }
+}
+
+function saveLastActivity(value: number) {
+  try {
+    window.localStorage.setItem(LAST_ACTIVITY_KEY, String(value));
+  } catch {
+    /* ignore */
+  }
+}
 
 /**
  * Encerra a sessão do usuário após um período de inatividade.
@@ -16,7 +34,7 @@ export function useSessionTimeout(onExpire: () => void) {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let minutes = DEFAULT_MINUTES;
-    let lastActivity = Date.now();
+    let lastActivity = readLastActivity();
 
     const expire = async () => {
       await supabase.auth.signOut();
@@ -34,7 +52,12 @@ export function useSessionTimeout(onExpire: () => void) {
     };
 
     const activity = () => {
+      if (Date.now() - lastActivity >= Math.max(1, minutes) * 60 * 1000) {
+        void expire();
+        return;
+      }
       lastActivity = Date.now();
+      saveLastActivity(lastActivity);
       arm();
     };
     const checkWhenVisible = () => {
@@ -55,6 +78,7 @@ export function useSessionTimeout(onExpire: () => void) {
         if (!cancelled) arm();
       });
 
+    saveLastActivity(lastActivity);
     arm();
 
     return () => {

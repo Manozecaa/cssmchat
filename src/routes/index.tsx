@@ -58,6 +58,7 @@ function AuthPage() {
     }
     try {
       window.localStorage.setItem("cssm:remember", remember ? "1" : "0");
+      window.localStorage.setItem("cssm:last-activity", String(Date.now()));
     } catch {
       /* ignore */
     }
