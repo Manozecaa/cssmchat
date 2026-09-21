@@ -1568,6 +1568,17 @@ function ConversationsPage() {
                 </p>
               </div>
 
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                onClick={() => updatePrefs({ theme: prefs.theme === "dark" ? "light" : "dark" })}
+                aria-label={prefs.theme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
+                title={prefs.theme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
+              >
+                {prefs.theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+              </Button>
+
               {active.is_group && isGroupAdmin(active.id) && (
                 <>
                   <Button variant="outline" size="sm" onClick={() => setGroupOpen(true)}>
