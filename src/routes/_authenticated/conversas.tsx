@@ -1161,6 +1161,15 @@ function ConversationsPage() {
             <Button
               variant="ghost"
               size="icon"
+              onClick={() => updatePrefs({ theme: prefs.theme === "dark" ? "light" : "dark" })}
+              aria-label={prefs.theme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
+              title={prefs.theme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
+            >
+              {prefs.theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setSettingsOpen(true)}
               aria-label="Configurações do usuário"
             >
@@ -1558,6 +1567,17 @@ function ConversationsPage() {
                   </button>
                 </p>
               </div>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                onClick={() => updatePrefs({ theme: prefs.theme === "dark" ? "light" : "dark" })}
+                aria-label={prefs.theme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
+                title={prefs.theme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
+              >
+                {prefs.theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+              </Button>
 
               {active.is_group && isGroupAdmin(active.id) && (
                 <>
@@ -2613,6 +2633,28 @@ function UserSettingsDialog({
             </DialogDescription>
           </DialogHeader>
 
+          <div className="space-y-3 rounded-md border border-border bg-muted/40 p-3">
+            <Label>Aparência</Label>
+            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Tema do chat">
+              <Button
+                type="button"
+                variant={prefs.theme === "light" ? "default" : "outline"}
+                onClick={() => onPrefs({ theme: "light" })}
+                aria-pressed={prefs.theme === "light"}
+              >
+                <Sun className="size-4" /> Claro
+              </Button>
+              <Button
+                type="button"
+                variant={prefs.theme === "dark" ? "default" : "outline"}
+                onClick={() => onPrefs({ theme: "dark" })}
+                aria-pressed={prefs.theme === "dark"}
+              >
+                <Moon className="size-4" /> Escuro
+              </Button>
+            </div>
+          </div>
+
           <div className="flex items-center gap-4">
             <Avatar className="size-16">
               <AvatarImage src={avatarUrl} alt="" />
@@ -2688,28 +2730,6 @@ function UserSettingsDialog({
               {profile.description}
             </p>
           )}
-
-          <div className="space-y-3 border-t border-border pt-4">
-            <Label>Aparência</Label>
-            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Tema do chat">
-              <Button
-                type="button"
-                variant={prefs.theme === "light" ? "default" : "outline"}
-                onClick={() => onPrefs({ theme: "light" })}
-                aria-pressed={prefs.theme === "light"}
-              >
-                <Sun className="size-4" /> Claro
-              </Button>
-              <Button
-                type="button"
-                variant={prefs.theme === "dark" ? "default" : "outline"}
-                onClick={() => onPrefs({ theme: "dark" })}
-                aria-pressed={prefs.theme === "dark"}
-              >
-                <Moon className="size-4" /> Escuro
-              </Button>
-            </div>
-          </div>
 
           <div className="space-y-3 border-t border-border pt-4">
             <Label>Notificações</Label>
