@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { initials } from "@/lib/session";
 import { avatarSrc, signAvatars } from "@/lib/avatars";
 import { cn } from "@/lib/utils";
+import { useSessionTimeout } from "@/hooks/use-session-timeout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,6 +78,10 @@ function dayKey(d: Date) {
 
 function AgendaPage() {
   const navigate = useNavigate();
+  useSessionTimeout(() => {
+    toast.info("Sessão encerrada por inatividade.");
+    navigate({ to: "/", replace: true });
+  });
   const [me, setMe] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [signed, setSigned] = useState<Record<string, string>>({});
