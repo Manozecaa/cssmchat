@@ -130,7 +130,7 @@ function AuthPage() {
                 checked={remember}
                 onChange={(e) => setRemember(e.target.checked)}
               />
-              Manter conectado
+              Lembrar senha
             </label>
             <Button
               type="submit"
