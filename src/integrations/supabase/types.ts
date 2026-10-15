@@ -319,6 +319,7 @@ export type Database = {
           full_name: string
           id: string
           is_active: boolean
+          last_seen_at: string
           must_change_password: boolean
           sector: string | null
           status: string
@@ -336,6 +337,7 @@ export type Database = {
           full_name?: string
           id: string
           is_active?: boolean
+          last_seen_at?: string
           must_change_password?: boolean
           sector?: string | null
           status?: string
@@ -353,6 +355,7 @@ export type Database = {
           full_name?: string
           id?: string
           is_active?: boolean
+          last_seen_at?: string
           must_change_password?: boolean
           sector?: string | null
           status?: string
