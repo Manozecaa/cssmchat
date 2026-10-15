@@ -2062,7 +2062,6 @@ function ConversationsPage() {
                 </DialogHeader>
                 <div className="max-h-80 space-y-1 overflow-y-auto">
                   {conversations
-                    .filter((c) => !memberHidden(c.id))
                     .map((c) => (
                       <button
                         key={c.id}
