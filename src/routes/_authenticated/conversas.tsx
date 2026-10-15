@@ -114,8 +114,11 @@ const STATUS_OPTIONS = [
   { id: "reuniao", label: "Em reunião", color: "bg-amber-500" },
   { id: "ausente", label: "Ausente", color: "bg-slate-400" },
 ];
+const OFFLINE_STATUS = { id: "offline", label: "Offline", color: "bg-muted-foreground/40" };
+const OFFLINE_AFTER_MS = 24 * 60 * 60 * 1000;
 
 function statusMeta(status: string | null | undefined) {
+  if (status === "offline") return OFFLINE_STATUS;
   return STATUS_OPTIONS.find((s) => s.id === (status ?? "ativo")) ?? STATUS_OPTIONS[0]!;
 }
 
@@ -339,9 +342,17 @@ function ConversationsPage() {
   const loadProfiles = useCallback(async () => {
     const { data: profs } = await supabase
       .from("profiles")
-      .select("id, full_name, username, email, avatar_url, description, sector, status, category, must_change_password")
+      .select("id, full_name, username, email, avatar_url, description, sector, status, category, must_change_password, last_seen_at")
       .order("full_name", { ascending: true });
-    setProfiles(profs ?? []);
+    const { data: me } = await supabase.auth.getUser();
+    const now = Date.now();
+    setProfiles(
+      (profs ?? []).map((p) =>
+        p.id !== me.user?.id && now - new Date(p.last_seen_at).getTime() > OFFLINE_AFTER_MS
+          ? { ...p, status: "offline" }
+          : p,
+      ),
+    );
     const map = await signAvatars((profs ?? []).map((p) => p.avatar_url));
     setSigned((prev) => ({ ...prev, ...map }));
   }, []);
@@ -426,6 +437,18 @@ function ConversationsPage() {
       if (convs.length > 0) setActiveId(convs[0]!.id);
     })();
   }, [loadProfiles, loadConversations]);
+
+  // Registra o último acesso; usuários sem acesso há 24h aparecem offline.
+  useEffect(() => {
+    const beat = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data.user)
+        await supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", data.user.id);
+    };
+    void beat();
+    const t = setInterval(() => void beat(), 5 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
 
   useSessionTimeout(() => {
     toast.info("Sessão encerrada por inatividade.");
