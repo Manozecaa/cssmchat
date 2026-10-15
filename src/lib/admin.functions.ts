@@ -474,7 +474,7 @@ export const adminExportConversation = createServerFn({ method: "POST" })
       ...(msgs ?? []).map((m) => {
         const when = new Date(m.created_at).toLocaleString("pt-BR");
         const who = nameOf.get(m.sender_id) ?? "Usuário";
-        const body = m.deleted_at ? "[mensagem apagada]" : m.content;
+        const body = m.deleted_at ? `${m.content} [APAGADA PELO USUÁRIO em ${new Date(m.deleted_at).toLocaleString("pt-BR")}]` : m.content;
         return `[${when}] ${who}: ${body}${m.edited_at ? " (editada)" : ""}`;
       }),
     ];

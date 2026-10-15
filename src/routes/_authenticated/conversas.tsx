@@ -11,6 +11,9 @@ import {
   Check,
   CheckCheck,
   ChevronDown,
+  CornerUpLeft,
+  Forward,
+  Pencil,
   Copy,
   Download,
   FileText,
@@ -167,6 +170,10 @@ type Message = {
   attachment_type: string | null;
   attachment_size: number | null;
   is_system: boolean;
+  edited_at: string | null;
+  deleted_at: string | null;
+  reply_to_id: string | null;
+  is_forwarded: boolean;
 };
 type LastMessage = { sender_id: string; created_at: string; preview: string };
 type ChatEvent = {
@@ -202,7 +209,7 @@ function writePrefs(p: NotifPrefs) {
 }
 
 const MESSAGE_COLUMNS =
-  "id, conversation_id, sender_id, content, created_at, attachment_path, attachment_name, attachment_type, attachment_size, is_system";
+  "id, conversation_id, sender_id, content, created_at, attachment_path, attachment_name, attachment_type, attachment_size, is_system, edited_at, deleted_at, reply_to_id, is_forwarded";
 
 const MENTION_RE = /@([a-z0-9._-]+)/gi;
 
@@ -312,6 +319,9 @@ function ConversationsPage() {
     setMention(null);
   }
   const [sending, setSending] = useState(false);
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [editing, setEditing] = useState<Message | null>(null);
+  const [forwarding, setForwarding] = useState<Message | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [eventOpen, setEventOpen] = useState(false);
@@ -568,11 +578,18 @@ function ConversationsPage() {
         .from("messages")
         .select(MESSAGE_COLUMNS)
         .eq("conversation_id", activeId)
-        .is("deleted_at", null)
         .order("created_at", { ascending: true });
       if (cancelled || !data) return;
       setMessages((prev) =>
-        prev.length === data.length && prev.every((m, i) => m.id === data[i]?.id) ? prev : data,
+        prev.length === data.length &&
+        prev.every(
+          (m, i) =>
+            m.id === data[i]?.id &&
+            m.edited_at === data[i]?.edited_at &&
+            m.deleted_at === data[i]?.deleted_at,
+        )
+          ? prev
+          : data,
       );
       const paths = data.map((m) => m.attachment_path).filter(Boolean) as string[];
       if (paths.length > 0) {
@@ -1054,6 +1071,25 @@ function ConversationsPage() {
   async function send(e: React.FormEvent) {
     e.preventDefault();
     const content = (draftRef.current?.value ?? "").trim();
+    if (editing) {
+      if (!content || sending) return;
+      setSending(true);
+      const { error: edErr } = await supabase
+        .from("messages")
+        .update({ content, edited_at: new Date().toISOString() })
+        .eq("id", editing.id);
+      setSending(false);
+      if (edErr) {
+        toast.error("Não foi possível editar a mensagem.");
+        return;
+      }
+      setMessages((prev) =>
+        prev.map((m) => (m.id === editing.id ? { ...m, content, edited_at: new Date().toISOString() } : m)),
+      );
+      setEditing(null);
+      if (draftRef.current) draftRef.current.value = "";
+      return;
+    }
     if ((!content && !pendingFile) || !activeId || !me || sending) return;
     setSending(true);
 
@@ -1091,6 +1127,7 @@ function ConversationsPage() {
       conversation_id: activeId,
       sender_id: me,
       content,
+      reply_to_id: replyTo?.id ?? null,
       ...(attachment ?? {}),
     });
     setSending(false);
@@ -1101,6 +1138,48 @@ function ConversationsPage() {
     if (draftRef.current) draftRef.current.value = "";
     setMention(null);
     setPendingFile(null);
+    setReplyTo(null);
+  }
+
+  async function deleteMessage(m: Message) {
+    if (!window.confirm("Apagar esta mensagem para todos?")) return;
+    const deleted_at = new Date().toISOString();
+    const { error } = await supabase.from("messages").update({ deleted_at }).eq("id", m.id);
+    if (error) {
+      toast.error("Não foi possível apagar a mensagem.");
+      return;
+    }
+    setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, deleted_at } : x)));
+  }
+
+  async function forwardTo(conversationId: string) {
+    if (!forwarding || !me) return;
+    const f = forwarding;
+    const { error } = await supabase.from("messages").insert({
+      conversation_id: conversationId,
+      sender_id: me,
+      content: f.content,
+      is_forwarded: true,
+      attachment_path: f.attachment_path,
+      attachment_name: f.attachment_name,
+      attachment_type: f.attachment_type,
+      attachment_size: f.attachment_size,
+    });
+    if (error) {
+      toast.error("Não foi possível encaminhar.");
+      return;
+    }
+    setForwarding(null);
+    toast.success("Mensagem encaminhada.");
+  }
+
+  function startEdit(m: Message) {
+    setReplyTo(null);
+    setEditing(m);
+    if (draftRef.current) {
+      draftRef.current.value = m.content;
+      draftRef.current.focus();
+    }
   }
 
   async function setMute(conversationId: string, hours: number | null, forever = false) {
@@ -1825,8 +1904,18 @@ function ConversationsPage() {
                       </div>
                     );
                   }
+                  const replied = m.reply_to_id ? messages.find((x) => x.id === m.reply_to_id) : undefined;
+                  if (m.deleted_at) {
+                    return (
+                      <div key={m.id} className={cn("flex", mine ? "justify-end" : "justify-start")}>
+                        <span className="rounded-lg border border-dashed border-border px-3 py-2 text-xs italic text-muted-foreground">
+                          {mine ? "Você apagou esta mensagem" : `${profileMap[m.sender_id]?.full_name ?? "Usuário"} apagou esta mensagem`}
+                        </span>
+                      </div>
+                    );
+                  }
                   return (
-                    <div key={m.id} className={cn("flex gap-3", mine && "flex-row-reverse")}>
+                    <div key={m.id} className={cn("group flex gap-3", mine && "flex-row-reverse")}>
                       <Avatar className="size-8 shrink-0">
                         <AvatarImage
                           src={avatarSrc(profileMap[m.sender_id]?.avatar_url, signed)}
@@ -1857,7 +1946,65 @@ function ConversationsPage() {
                                 return <CheckCheck className="size-3.5" aria-label="Recebida" />;
                               return <Check className="size-3.5" aria-label="Enviada" />;
                             })()}
+                          {m.edited_at && <span className="italic">(editada)</span>}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                aria-label="Ações da mensagem"
+                                className="rounded p-0.5 opacity-60 hover:bg-accent hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                              >
+                                <ChevronDown className="size-3.5" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align={mine ? "end" : "start"}>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setEditing(null);
+                                  setReplyTo(m);
+                                  draftRef.current?.focus();
+                                }}
+                              >
+                                <CornerUpLeft className="size-4" /> Responder
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setForwarding(m)}>
+                                <Forward className="size-4" /> Encaminhar
+                              </DropdownMenuItem>
+                              {mine && m.content && (
+                                <DropdownMenuItem onClick={() => startEdit(m)}>
+                                  <Pencil className="size-4" /> Editar
+                                </DropdownMenuItem>
+                              )}
+                              {mine && (
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onClick={() => void deleteMessage(m)}
+                                >
+                                  <Trash2 className="size-4" /> Apagar
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </p>
+                        {m.is_forwarded && (
+                          <p className="mt-1 flex items-center gap-1 text-xs italic text-muted-foreground">
+                            <Forward className="size-3" /> Encaminhada
+                          </p>
+                        )}
+                        {m.reply_to_id && (
+                          <div className="mt-1 rounded-md border-l-4 border-primary bg-muted/60 px-2 py-1 text-left text-xs text-muted-foreground">
+                            <span className="font-semibold text-foreground">
+                              {replied ? (profileMap[replied.sender_id]?.full_name ?? "Usuário") : "Mensagem"}
+                            </span>
+                            <p className="line-clamp-2">
+                              {!replied
+                                ? "Mensagem indisponível"
+                                : replied.deleted_at
+                                  ? "Mensagem apagada"
+                                  : replied.content || replied.attachment_name || "Anexo"}
+                            </p>
+                          </div>
+                        )}
                         {m.attachment_path && (
                           <div className="mt-1">
                             {isImage(m.attachment_type) && url ? (
@@ -1907,6 +2054,31 @@ function ConversationsPage() {
                 <div ref={bottomRef} />
               </div>
             </ScrollArea>
+            <Dialog open={!!forwarding} onOpenChange={(o) => !o && setForwarding(null)}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Encaminhar mensagem</DialogTitle>
+                  <DialogDescription>Escolha a conversa de destino.</DialogDescription>
+                </DialogHeader>
+                <div className="max-h-80 space-y-1 overflow-y-auto">
+                  {conversations
+                    .map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => void forwardTo(c.id)}
+                        className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm hover:bg-accent"
+                      >
+                        <Avatar className="size-8">
+                          <AvatarImage src={conversationAvatar(c)} alt="" />
+                          <AvatarFallback className="text-xs">{initials(conversationLabel(c))}</AvatarFallback>
+                        </Avatar>
+                        <span className="truncate">{conversationLabel(c)}</span>
+                      </button>
+                    ))}
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {active.is_group &&
             active.only_admins_send &&
@@ -1917,6 +2089,33 @@ function ConversationsPage() {
               </div>
             ) : (
             <form onSubmit={send} className="border-t border-border px-3 py-3 sm:px-6 sm:py-4">
+              {(replyTo || editing) && (
+                <div className="mb-2 flex items-center gap-2 rounded-md border-l-4 border-primary bg-muted px-3 py-2 text-xs">
+                  {editing ? <Pencil className="size-3.5" /> : <CornerUpLeft className="size-3.5" />}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">
+                      {editing
+                        ? "Editando mensagem"
+                        : `Respondendo a ${profileMap[replyTo!.sender_id]?.full_name ?? "Usuário"}`}
+                    </p>
+                    <p className="truncate text-muted-foreground">
+                      {(editing ?? replyTo)!.content || (editing ?? replyTo)!.attachment_name}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Cancelar"
+                    onClick={() => {
+                      if (editing && draftRef.current) draftRef.current.value = "";
+                      setEditing(null);
+                      setReplyTo(null);
+                    }}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              )}
               {pendingFile && (
                 <div className="mb-2 flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 text-xs">
                   <Paperclip className="size-3.5" />
